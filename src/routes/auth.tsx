@@ -5,7 +5,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { fetchProfileRole, routeForRole } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import logo from "@/assets/logo.png";
+import logoAsset from "@/assets/logo-banho-tosa-ju.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -95,8 +95,8 @@ function AuthPage() {
       <Toaster />
       <div className="w-full max-w-md bg-card rounded-3xl shadow-xl border border-border p-8">
         <div className="flex flex-col items-center mb-6">
-          <img src={logo} alt="Pata & Arte" width={64} height={64} className="size-16" />
-          <h1 className="font-serif text-2xl mt-3">Pata &amp; Arte</h1>
+          <img src={logoAsset.url} alt="Banho & Tosa da JU" width={80} height={80} className="size-20 rounded-full bg-white object-contain p-1 shadow-sm" />
+          <h1 className="font-serif text-2xl mt-3">Banho &amp; Tosa da JU</h1>
           <p className="text-sm text-ink/60 mt-1">
             {mode === "login" ? "Entre para acessar seu portal" : "Crie sua conta de tutor"}
           </p>
