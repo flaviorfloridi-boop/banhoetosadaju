@@ -172,7 +172,9 @@ function AgendarTab({ pets, ags, onChange, userId }: { pets: Pet[]; ags: Agendam
     e.preventDefault();
     if (!userId || !petId) return;
     const { error } = await supabase.from("agendamentos").insert({
-      cliente_id: userId, pet_id: petId, servico, data, horario, observacoes: obs || null,
+      cliente_id: userId, pet_id: petId,
+      servico: servico as "banho" | "tosa" | "banho_e_tosa" | "tosa_higienica" | "hidratacao",
+      data, horario, observacoes: obs || null,
     });
     if (error) { toast.error(error.message); return; }
     toast.success("Agendamento solicitado!");
@@ -239,7 +241,8 @@ function TaxiTab({ pets, taxis, ags, onChange, userId }: { pets: Pet[]; taxis: T
     if (!userId || !petId) return;
     const { error } = await supabase.from("taxi_dog").insert({
       cliente_id: userId, pet_id: petId, endereco_coleta: endereco, bairro,
-      ponto_referencia: ref || null, data, horario, tipo,
+      ponto_referencia: ref || null, data, horario,
+      tipo: tipo as "coleta" | "entrega" | "coleta_e_entrega",
       agendamento_id: agId || null, observacoes: obs || null,
     });
     if (error) { toast.error(error.message); return; }
