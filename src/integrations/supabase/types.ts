@@ -124,6 +124,27 @@ export type Database = {
           },
         ]
       }
+      mensagem_templates: {
+        Row: {
+          chave: string
+          template: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          chave: string
+          template: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          chave?: string
+          template?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pagamentos: {
         Row: {
           agendamento_id: string | null
