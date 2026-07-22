@@ -68,6 +68,171 @@ export type Database = {
           },
         ]
       }
+      app_settings: {
+        Row: {
+          chave: string
+          updated_at: string
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          valor: Json
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Relationships: []
+      }
+      gallery_posts: {
+        Row: {
+          created_at: string
+          enviado_por: string | null
+          id: string
+          legenda: string | null
+          ordem: number
+          publicado: boolean
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          legenda?: string | null
+          ordem?: number
+          publicado?: boolean
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          legenda?: string | null
+          ordem?: number
+          publicado?: boolean
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gallery_posts_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pagamentos: {
+        Row: {
+          agendamento_id: string | null
+          cliente_id: string
+          created_at: string
+          descricao: string
+          environment: string
+          id: string
+          metodo: string | null
+          status: string
+          stripe_session_id: string | null
+          updated_at: string
+          valor_cents: number
+        }
+        Insert: {
+          agendamento_id?: string | null
+          cliente_id: string
+          created_at?: string
+          descricao: string
+          environment?: string
+          id?: string
+          metodo?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          valor_cents: number
+        }
+        Update: {
+          agendamento_id?: string | null
+          cliente_id?: string
+          created_at?: string
+          descricao?: string
+          environment?: string
+          id?: string
+          metodo?: string | null
+          status?: string
+          stripe_session_id?: string | null
+          updated_at?: string
+          valor_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagamentos_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagamentos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pet_photos: {
+        Row: {
+          agendamento_id: string | null
+          created_at: string
+          enviado_por: string | null
+          id: string
+          legenda: string | null
+          pet_id: string
+          storage_path: string
+        }
+        Insert: {
+          agendamento_id?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          legenda?: string | null
+          pet_id: string
+          storage_path: string
+        }
+        Update: {
+          agendamento_id?: string | null
+          created_at?: string
+          enviado_por?: string | null
+          id?: string
+          legenda?: string | null
+          pet_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pet_photos_agendamento_id_fkey"
+            columns: ["agendamento_id"]
+            isOneToOne: false
+            referencedRelation: "agendamentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_photos_enviado_por_fkey"
+            columns: ["enviado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pet_photos_pet_id_fkey"
+            columns: ["pet_id"]
+            isOneToOne: false
+            referencedRelation: "pets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pets: {
         Row: {
           created_at: string
@@ -136,6 +301,93 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           telefone?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      service_prices: {
+        Row: {
+          ativo: boolean
+          categoria: string
+          chave: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+          valor_cents: number
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string
+          chave: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+          valor_cents?: number
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string
+          chave?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+          valor_cents?: number
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          environment: string
+          id: string
+          price_id: string
+          product_id: string
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          price_id: string
+          product_id: string
+          status?: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          environment?: string
+          id?: string
+          price_id?: string
+          product_id?: string
+          status?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -220,6 +472,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_agendamentos_por_dia: {
+        Args: { fim: string; inicio: string }
+        Returns: {
+          data: string
+          limite: number
+          total: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]
