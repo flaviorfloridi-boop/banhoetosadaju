@@ -378,3 +378,137 @@ function StatusBadge({ status }: { status: string }) {
     </span>
   );
 }
+
+function PagamentosTab({ pags, precos, ags, pets, onChange }: { pags: Pagamento[]; precos: Preco[]; ags: Agendamento[]; pets: Pet[]; onChange: () => void }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [customPrice, setCustomPrice] = useState<Preco | null>(null);
+  const [customAg, setCustomAg] = useState<string>("");
+
+  const pendentesPorAg = useMemo(() => {
+    const set = new Set(pags.filter((p) => p.status === "pago").map((p) => p.agendamento_id).filter(Boolean));
+    return set as Set<string>;
+  }, [pags]);
+
+  const agsPendentes = ags.filter((a) => a.status !== "cancelado" && !pendentesPorAg.has(a.id));
+
+  function petLabel(agId: string) {
+    const a = ags.find((x) => x.id === agId);
+    const pet = pets.find((p) => p.id === a?.pet_id);
+    return `${pet?.nome ?? "Pet"} — ${a?.servico.replace(/_/g, " ")} (${a ? new Date(a.data).toLocaleDateString("pt-BR") : ""})`;
+  }
+
+  if (!paymentsConfigured()) {
+    return (
+      <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center text-ink/60">
+        Pagamentos online ainda não estão ativos. Você pode pagar direto na loja.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid md:grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <h3 className="font-serif text-xl">Pagar um serviço</h3>
+        <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
+          <p className="text-sm text-ink/60">Escolha um serviço ou um agendamento pendente:</p>
+          <select onChange={(e) => { setCustomAg(e.target.value); setCustomPrice(null); }} value={customAg} className="w-full px-4 py-2 rounded-lg border border-border bg-surface">
+            <option value="">— Escolher agendamento pendente —</option>
+            {agsPendentes.map((a) => <option key={a.id} value={a.id}>{petLabel(a.id)}</option>)}
+          </select>
+          <div className="grid grid-cols-1 gap-2">
+            {precos.map((p) => (
+              <button key={p.chave} onClick={() => { setCustomPrice(p); setCustomAg(""); setOpenId(p.chave); }}
+                className={"flex justify-between items-center px-4 py-3 rounded-xl border text-left transition " + (customPrice?.chave === p.chave ? "border-brand bg-brand/5" : "border-border hover:border-brand/40")}>
+                <span className="text-sm font-medium">{p.nome}</span>
+                <span className="font-mono font-bold text-brand">R$ {(p.valor_cents / 100).toFixed(2)}</span>
+              </button>
+            ))}
+          </div>
+          {(customPrice || customAg) && (
+            <button onClick={() => setOpenId("checkout")} className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold">
+              Pagar com cartão
+            </button>
+          )}
+        </div>
+
+        {openId === "checkout" && (customPrice || customAg) && (
+          <div className="bg-card border border-border rounded-2xl p-2">
+            <StripeEmbeddedCheckout_Servico
+              descricao={customPrice?.nome ?? petLabel(customAg)}
+              amountInCents={customPrice?.valor_cents ?? 0}
+              agendamentoId={customAg || undefined}
+            />
+            {!customPrice && (
+              <p className="p-3 text-xs text-ink/50">
+                Valor a ser confirmado na loja. Para pagar valor exato, escolha um serviço na lista.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="font-serif text-xl">Meus pagamentos</h3>
+        {pags.length === 0 && <p className="text-ink/50 text-sm">Nenhum pagamento ainda.</p>}
+        {pags.map((p) => (
+          <div key={p.id} className="bg-card border border-border rounded-xl p-4 flex justify-between items-center">
+            <div>
+              <p className="font-bold text-sm">{p.descricao}</p>
+              <p className="text-xs text-ink/50">{new Date(p.created_at).toLocaleString("pt-BR")}</p>
+            </div>
+            <div className="text-right">
+              <p className="font-mono font-bold">R$ {(p.valor_cents / 100).toFixed(2)}</p>
+              <StatusBadge status={p.status} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FotosTab({ photos, pets }: { photos: PetPhoto[]; pets: Pet[] }) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!photos.length) return;
+    (async () => {
+      const paths = photos.map((p) => p.storage_path);
+      const { data } = await supabase.storage.from("pet-photos").createSignedUrls(paths, 3600);
+      const map: Record<string, string> = {};
+      data?.forEach((r, i) => { if (r.signedUrl) map[paths[i]] = r.signedUrl; });
+      setUrls(map);
+    })();
+  }, [photos]);
+
+  if (photos.length === 0) {
+    return (
+      <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center text-ink/60">
+        Ainda não há fotos. Depois do próximo banho, a equipe posta aqui ✨
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {photos.map((ph) => {
+        const pet = pets.find((p) => p.id === ph.pet_id);
+        const url = urls[ph.storage_path];
+        return (
+          <div key={ph.id} className="bg-card border border-border rounded-2xl overflow-hidden">
+            {url ? (
+              <img src={url} alt={ph.legenda ?? pet?.nome ?? "Pet"} className="w-full aspect-square object-cover" loading="lazy" />
+            ) : (
+              <div className="w-full aspect-square bg-muted animate-pulse" />
+            )}
+            <div className="p-3">
+              <p className="text-sm font-bold">{pet?.nome ?? "Pet"}</p>
+              <p className="text-xs text-ink/50">{new Date(ph.created_at).toLocaleDateString("pt-BR")}</p>
+              {ph.legenda && <p className="text-xs text-ink/70 mt-1 italic">"{ph.legenda}"</p>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
