@@ -19,13 +19,13 @@ export function SiteHeader() {
         <div className="md:hidden" />
 
         {/* Centered logo */}
-        <Link to="/" className="flex flex-col items-center justify-center col-start-2 justify-self-center">
+        <Link to="/" className="flex items-center justify-center col-start-2 justify-self-center">
           <img
             src={logoAsset.url}
             alt="Banho & Tosa da JU"
-            width={96}
-            height={96}
-            className="size-16 md:size-20 rounded-full bg-white object-contain p-1 shadow-sm ring-1 ring-brand/10"
+            width={140}
+            height={140}
+            className="h-14 md:h-16 w-auto object-contain"
           />
           <span className="sr-only">Banho &amp; Tosa da JU</span>
         </Link>
