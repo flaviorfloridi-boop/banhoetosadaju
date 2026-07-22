@@ -8,6 +8,9 @@ import { Toaster } from "@/components/ui/sonner";
 import logoAsset from "@/assets/logo-banho-tosa-ju.png.asset.json";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" && s.next.startsWith("/") ? s.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Entrar — Pata & Arte" },
@@ -21,6 +24,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,13 +36,15 @@ function AuthPage() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session?.user) {
+        if (next) { window.location.href = next; return; }
         const role = await fetchProfileRole(data.session.user.id);
         navigate({ to: routeForRole(role), replace: true });
       }
     });
-  }, [navigate]);
+  }, [navigate, next]);
 
   async function afterAuth(userId: string) {
+    if (next) { window.location.href = next; return; }
     const role = await fetchProfileRole(userId);
     navigate({ to: routeForRole(role), replace: true });
   }
@@ -52,7 +58,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: next ? window.location.origin + next : window.location.origin,
             data: { nome, telefone },
           },
         });
@@ -77,7 +83,7 @@ function AuthPage() {
   async function handleGoogle() {
     setBusy(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin + "/auth",
+      redirect_uri: window.location.origin + "/auth" + (next ? "?next=" + encodeURIComponent(next) : ""),
     });
     if (result.error) {
       toast.error("Erro no login com Google");
