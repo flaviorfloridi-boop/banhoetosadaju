@@ -18,7 +18,6 @@ export default defineTool({
     observacoes: z.string().optional(),
   },
   annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
-  needsApproval: true,
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return unauthorized();
     const { data: row, error } = await supabaseForUser(ctx)
