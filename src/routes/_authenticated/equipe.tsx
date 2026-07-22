@@ -6,7 +6,16 @@ import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { TaxiMap, type TaxiStop } from "@/components/taxi-map";
-import { waLink, msgAgendamentoStatus, msgTaxiStatus } from "@/lib/whatsapp";
+import {
+  waLink,
+  buildMessage,
+  agendamentoTemplateKey,
+  taxiTemplateKey,
+  agendamentoVars,
+  taxiVars,
+  DEFAULT_TEMPLATES,
+} from "@/lib/whatsapp";
+import { useTemplates } from "@/hooks/use-templates";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   head: () => ({
@@ -29,7 +38,7 @@ interface GalleryRow { id: string; storage_path: string; legenda: string | null;
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
-type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria";
+type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -41,6 +50,7 @@ function EquipePortal() {
   const [pets, setPets] = useState<Record<string, Pet>>({});
   const [profs, setProfs] = useState<Record<string, Prof>>({});
   const [limiteDia, setLimiteDia] = useState<number>(15);
+  const templates = useTemplates();
 
   useEffect(() => {
     if (loading) return;
@@ -121,6 +131,7 @@ function EquipePortal() {
           <TabBtn active={tab === "config"} onClick={() => setTab("config")}>Configurações</TabBtn>
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos dos pets</TabBtn>
           <TabBtn active={tab === "galeria"} onClick={() => setTab("galeria")}>Galeria site</TabBtn>
+          <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>Mensagens</TabBtn>
         </div>
 
         {tab === "agenda" && (
@@ -148,7 +159,7 @@ function EquipePortal() {
                   <div className="flex flex-col gap-2 items-end">
                     <StatusSelect value={a.status} options={["solicitado", "confirmado", "em_andamento", "concluido", "cancelado"]} onChange={(s) => updateAg(a.id, s)} />
                     {cli?.telefone && (
-                      <a href={waLink(cli.telefone, msgAgendamentoStatus(pet?.nome ?? "seu pet", a.servico, a.data, a.horario, a.status))}
+                      <a href={waLink(cli.telefone, buildMessage(templates, agendamentoTemplateKey(a.status), agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
                          target="_blank" rel="noreferrer"
                          className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                         📱 WhatsApp
@@ -194,7 +205,7 @@ function EquipePortal() {
                     <div className="flex flex-col gap-2 items-end">
                       <StatusSelect value={t.status} options={["solicitado", "confirmado", "a_caminho", "concluido", "cancelado"]} onChange={(s) => updateTd(t.id, s)} />
                       {cli?.telefone && (
-                        <a href={waLink(cli.telefone, msgTaxiStatus(pet?.nome ?? "seu pet", `${t.endereco_coleta}, ${t.bairro}`, t.horario, t.status))}
+                        <a href={waLink(cli.telefone, buildMessage(templates, taxiTemplateKey(t.status), taxiVars(pet?.nome ?? "seu pet", `${t.endereco_coleta}, ${t.bairro}`, t.horario)))}
                            target="_blank" rel="noreferrer"
                            className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                           📱 WhatsApp
@@ -212,6 +223,7 @@ function EquipePortal() {
         {tab === "config" && <ConfigTab limiteDia={limiteDia} onSaved={setLimiteDia} />}
         {tab === "fotos" && <PetPhotosTab ags={ags} pets={pets} />}
         {tab === "galeria" && <GaleriaTab />}
+        {tab === "mensagens" && <MensagensTab />}
       </div>
     </div>
   );
