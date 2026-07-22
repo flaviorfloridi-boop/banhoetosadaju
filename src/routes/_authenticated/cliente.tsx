@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { StripeEmbeddedCheckout_Servico } from "@/components/StripeEmbeddedCheckout";
+import { paymentsConfigured } from "@/lib/stripe";
 
 export const Route = createFileRoute("/_authenticated/cliente")({
   head: () => ({
@@ -20,13 +23,20 @@ export const Route = createFileRoute("/_authenticated/cliente")({
 interface Pet { id: string; nome: string; especie: string; raca: string | null; porte: string | null; }
 interface Agendamento { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; }
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
+interface Pagamento { id: string; descricao: string; valor_cents: number; status: string; created_at: string; agendamento_id: string | null; }
+interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
+interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
 
 export default function ClientePortal() {
   const { profile, user } = useAuth();
   const [pets, setPets] = useState<Pet[]>([]);
   const [ags, setAgs] = useState<Agendamento[]>([]);
   const [taxis, setTaxis] = useState<TaxiDog[]>([]);
-  const [tab, setTab] = useState<"pets" | "agendar" | "taxi">("pets");
+  const [pags, setPags] = useState<Pagamento[]>([]);
+  const [precos, setPrecos] = useState<Preco[]>([]);
+  const [photos, setPhotos] = useState<PetPhoto[]>([]);
+  const [limiteDia, setLimiteDia] = useState<number>(15);
+  const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "pagamentos" | "fotos">("pets");
 
   useEffect(() => {
     if (!user) return;
@@ -34,25 +44,35 @@ export default function ClientePortal() {
   }, [user]);
 
   async function loadAll() {
-    const [p, a, t] = await Promise.all([
+    const [p, a, t, pg, pr, ph, cfg] = await Promise.all([
       supabase.from("pets").select("*").order("created_at"),
       supabase.from("agendamentos").select("*").order("data", { ascending: false }).limit(20),
       supabase.from("taxi_dog").select("*").order("data", { ascending: false }).limit(20),
+      supabase.from("pagamentos").select("*").order("created_at", { ascending: false }).limit(30),
+      supabase.from("service_prices").select("chave,nome,categoria,valor_cents,descricao").eq("ativo", true).order("ordem"),
+      supabase.from("pet_photos").select("id,pet_id,storage_path,legenda,created_at").order("created_at", { ascending: false }),
+      supabase.from("app_settings").select("valor").eq("chave", "limite_banhos_dia").maybeSingle(),
     ]);
     setPets((p.data as Pet[]) ?? []);
     setAgs((a.data as Agendamento[]) ?? []);
     setTaxis((t.data as TaxiDog[]) ?? []);
+    setPags((pg.data as Pagamento[]) ?? []);
+    setPrecos((pr.data as Preco[]) ?? []);
+    setPhotos((ph.data as PetPhoto[]) ?? []);
+    const v = cfg.data?.valor as number | undefined;
+    if (typeof v === "number") setLimiteDia(v);
   }
 
   return (
     <div className="min-h-screen bg-surface">
       <Toaster />
+      <PaymentTestModeBanner />
       <SiteHeader />
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
         <div className="flex items-baseline justify-between mb-6">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl">Olá, {profile?.nome || "tutor"} 👋</h1>
-            <p className="text-ink/60 text-sm mt-1">Gerencie seus pets, agendamentos e Taxi Dog</p>
+            <p className="text-ink/60 text-sm mt-1">Pets, agendamentos, Taxi Dog, pagamentos e fotos</p>
           </div>
           {(profile?.role === "funcionario" || profile?.role === "admin") && (
             <Link to="/equipe" className="text-sm text-accent font-bold hover:underline">Ir para portal da equipe →</Link>
@@ -61,13 +81,17 @@ export default function ClientePortal() {
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
-          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar banho/tosa</TabBtn>
+          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog</TabBtn>
+          <TabBtn active={tab === "pagamentos"} onClick={() => setTab("pagamentos")}>Pagamentos</TabBtn>
+          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos do meu pet</TabBtn>
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
-        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} onChange={loadAll} userId={user?.id} />}
+        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} onChange={loadAll} userId={user?.id} />}
         {tab === "taxi" && <TaxiTab pets={pets} taxis={taxis} ags={ags} onChange={loadAll} userId={user?.id} />}
+        {tab === "pagamentos" && <PagamentosTab pags={pags} precos={precos} ags={ags} pets={pets} onChange={loadAll} />}
+        {tab === "fotos" && <FotosTab photos={photos} pets={pets} />}
       </div>
     </div>
   );
@@ -161,16 +185,30 @@ function PetsTab({ pets, onChange }: { pets: Pet[]; onChange: () => void }) {
   );
 }
 
-function AgendarTab({ pets, ags, onChange, userId }: { pets: Pet[]; ags: Agendamento[]; onChange: () => void; userId?: string }) {
+function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number; onChange: () => void; userId?: string }) {
   const [petId, setPetId] = useState("");
   const [servico, setServico] = useState("banho");
   const [data, setData] = useState("");
   const [horario, setHorario] = useState("");
   const [obs, setObs] = useState("");
+  const [ocupacao, setOcupacao] = useState<number | null>(null);
+
+  useEffect(() => {
+    setOcupacao(null);
+    if (!data) return;
+    (async () => {
+      const { count } = await supabase.from("agendamentos").select("id", { count: "exact", head: true }).eq("data", data).neq("status", "cancelado");
+      setOcupacao(count ?? 0);
+    })();
+  }, [data]);
+
+  const cheio = ocupacao !== null && ocupacao >= limiteDia;
+  const servicos = precos.filter((p) => p.categoria === "servico" || p.categoria === "banho" || p.categoria === "tosa");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!userId || !petId) return;
+    if (cheio) { toast.error(`Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.`); return; }
     const { error } = await supabase.from("agendamentos").insert({
       cliente_id: userId, pet_id: petId,
       servico: servico as "banho" | "tosa" | "banho_e_tosa" | "tosa_higienica" | "hidratacao",
@@ -200,10 +238,28 @@ function AgendarTab({ pets, ags, onChange, userId }: { pets: Pet[]; ags: Agendam
           <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface" />
           <input required type="time" value={horario} onChange={(e) => setHorario(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface" />
         </div>
+        {data && ocupacao !== null && (
+          <p className={"text-xs " + (cheio ? "text-destructive font-bold" : "text-ink/60")}>
+            {cheio ? `⚠️ Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.` : `${ocupacao}/${limiteDia} vagas ocupadas neste dia.`}
+          </p>
+        )}
         <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Observações (opcional)" className="w-full px-4 py-2 rounded-lg border border-border bg-surface" />
-        <button disabled={!pets.length} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
-          {pets.length ? "Solicitar agendamento" : "Cadastre um pet primeiro"}
+        <button disabled={!pets.length || cheio} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
+          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Solicitar agendamento"}
         </button>
+        {servicos.length > 0 && (
+          <details className="text-xs text-ink/60 mt-2">
+            <summary className="cursor-pointer font-bold">Ver tabela de preços</summary>
+            <ul className="mt-2 space-y-1">
+              {servicos.map((s) => (
+                <li key={s.chave} className="flex justify-between border-b border-border/50 py-1">
+                  <span>{s.nome}</span>
+                  <span className="font-mono">R$ {(s.valor_cents / 100).toFixed(2)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </form>
       <div className="space-y-3">
         <h3 className="font-serif text-xl">Meus agendamentos</h3>
