@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import logo from "@/assets/logo.png";
+import logoAsset from "@/assets/logo-banho-tosa-ju.png.asset.json";
 import { useAuth, routeForRole } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,8 +20,14 @@ export function SiteHeader() {
 
         {/* Centered logo */}
         <Link to="/" className="flex flex-col items-center justify-center col-start-2 justify-self-center">
-          <img src={logo} alt="Pata & Arte" width={64} height={64} className="size-14 md:size-16" />
-          <span className="sr-only">Pata &amp; Arte</span>
+          <img
+            src={logoAsset.url}
+            alt="Banho & Tosa da JU"
+            width={96}
+            height={96}
+            className="size-16 md:size-20 rounded-full bg-white object-contain p-1 shadow-sm ring-1 ring-brand/10"
+          />
+          <span className="sr-only">Banho &amp; Tosa da JU</span>
         </Link>
 
         {/* Right actions */}

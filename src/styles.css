@@ -61,13 +61,13 @@
 
 :root {
   --radius: 1rem;
-  /* Palette (Warm artisan care) */
-  --brand: oklch(0.48 0.08 130);          /* olive from logo paw */
-  --brand-light: oklch(0.96 0.025 115);   /* pale olive cream */
-  --accent: oklch(0.58 0.09 115);         /* warm sage/olive-gold accent */
-  --accent-foreground: oklch(0.99 0.005 90);
-  --surface: oklch(0.985 0.008 90);       /* cream white */
-  --ink: oklch(0.27 0.04 130);            /* deep olive ink */
+  /* Palette — Banho & Tosa da JU (burgundy/raspberry from logo) */
+  --brand: oklch(0.40 0.14 358);          /* deep raspberry burgundy — logo ink */
+  --brand-light: oklch(0.96 0.02 350);    /* soft blush cream */
+  --accent: oklch(0.55 0.17 5);           /* warm raspberry accent */
+  --accent-foreground: oklch(0.99 0.005 350);
+  --surface: oklch(0.985 0.006 340);      /* off-white cream */
+  --ink: oklch(0.24 0.06 358);            /* near-black burgundy ink */
 
   --background: var(--surface);
   --foreground: var(--ink);
@@ -83,8 +83,8 @@
   --muted-foreground: oklch(0.5 0.03 120);
   --destructive: oklch(0.58 0.22 27);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.9 0.02 115);
-  --input: oklch(0.9 0.02 115);
+  --border: oklch(0.9 0.015 350);
+  --input: oklch(0.9 0.015 350);
   --ring: var(--brand);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -97,7 +97,7 @@
   --sidebar-primary-foreground: var(--surface);
   --sidebar-accent: var(--brand-light);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: oklch(0.9 0.02 115);
+  --sidebar-border: oklch(0.9 0.015 350);
   --sidebar-ring: var(--brand);
 }
 
