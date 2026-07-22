@@ -77,13 +77,17 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Pata & Arte — Banho e Tosa com carinho" },
-      { name: "description", content: "Pet shop especializado em banho, tosa e Taxi Dog. Agendamento online, portal do cliente e da equipe." },
+      { title: "Banho & Tosa da JU — Pet spa em SP" },
+      { name: "description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
       { name: "author", content: "Pata & Arte" },
-      { property: "og:title", content: "Pata & Arte — Banho e Tosa com carinho" },
-      { property: "og:description", content: "Pet shop especializado em banho, tosa e Taxi Dog em São Paulo." },
+      { property: "og:title", content: "Banho & Tosa da JU — Pet spa em SP" },
+      { property: "og:description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Banho & Tosa da JU — Pet spa em SP" },
+      { name: "twitter:description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8772165f-1a64-45c6-be1b-e0b5aa631234/id-preview-c72b4c60--4eb093af-3189-492d-97b9-83cbe9aefb80.lovable.app-1784733829622.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/8772165f-1a64-45c6-be1b-e0b5aa631234/id-preview-c72b4c60--4eb093af-3189-492d-97b9-83cbe9aefb80.lovable.app-1784733829622.png" },
     ],
     links: [
       {

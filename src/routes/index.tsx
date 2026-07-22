@@ -14,8 +14,8 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Banho & Tosa da JU — Pet spa em SP" },
       { name: "description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
-      { property: "og:title", content: "Banho & Tosa da JU" },
-      { property: "og:description", content: "Banho, tosa e Taxi Dog especializados para o seu pet." },
+      { property: "og:title", content: "Banho & Tosa da JU — Pet spa em SP" },
+      { property: "og:description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
