@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import pet1 from "@/assets/pet-natal-1.jpg.asset.json";
 import pet2 from "@/assets/pet-natal-2.jpg.asset.json";
 import pet3 from "@/assets/pet-natal-3.jpg.asset.json";
@@ -8,10 +10,42 @@ import { SiteFooter } from "@/components/site-footer";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Banho & Tosa da JU — Pet spa em SP" },
+      { name: "description", content: "Banho, tosa e Taxi Dog especializados. Agende online e acompanhe seu pet." },
+      { property: "og:title", content: "Banho & Tosa da JU" },
+      { property: "og:description", content: "Banho, tosa e Taxi Dog especializados para o seu pet." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Home,
 });
 
 function Home() {
+  const [gallery, setGallery] = useState<{ id: string; url: string; legenda: string | null }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("gallery_posts")
+        .select("id, storage_path, legenda")
+        .eq("publicado", true)
+        .order("ordem").order("created_at", { ascending: false })
+        .limit(8);
+      if (!data?.length) return;
+      const { data: signed } = await supabase.storage.from("gallery-photos")
+        .createSignedUrls(data.map((r) => r.storage_path), 3600);
+      const items = data.map((r, i) => ({ id: r.id, url: signed?.[i]?.signedUrl ?? "", legenda: r.legenda }))
+        .filter((r) => r.url);
+      if (items.length) setGallery(items);
+    })();
+  }, []);
+
+  const galleryItems = gallery.length
+    ? gallery
+    : [pet1, pet2, pet3, pet4].map((p, i) => ({ id: String(i), url: p.url, legenda: null }));
+
   return (
     <div className="min-h-screen bg-surface text-ink">
       <SiteHeader />
@@ -91,7 +125,7 @@ function Home() {
           <div>
             <h2 className="font-serif text-3xl md:text-4xl">Nossos pets</h2>
             <p className="text-ink/60 mt-2 max-w-md text-sm">
-              Um pedacinho do dia a dia no salão da Ju. Siga
+              Fotos reais dos nossos clientes pós-banho. Siga
               {" "}
               <a href="https://instagram.com/banhoetosadajuu" target="_blank" rel="noreferrer" className="underline text-brand">@banhoetosadajuu</a>
               {" "}no Instagram para mais.
@@ -107,11 +141,11 @@ function Home() {
           </a>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[pet1, pet2, pet3, pet4].map((p, i) => (
+          {galleryItems.map((p) => (
             <img
-              key={i}
+              key={p.id}
               src={p.url}
-              alt={`Pet cliente ${i + 1}`}
+              alt={p.legenda ?? "Pet cliente"}
               loading="lazy"
               className="w-full aspect-square object-cover rounded-3xl shadow-sm"
             />
