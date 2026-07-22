@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://wuslnlbacfxruquvrvll.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "banho-tosa-ju-mcp",
+      "version": "0.1.0",
+      "title": "Banho & Tosa da JU"
+    },
+    "tools": [
+      {
+        "name": "list_pets",
+        "title": "Listar meus pets",
+        "description": "Retorna os pets cadastrados do usuário autenticado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_agendamentos",
+        "title": "Listar agendamentos",
+        "description": "Retorna os agendamentos de banho/tosa do usuário. Filtre opcionalmente por status.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "status": {
+              "description": "solicitado | confirmado | em_andamento | concluido | cancelado",
+              "type": "string"
+            },
+            "limit": {
+              "description": "Máximo de registros (padrão 20)",
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_taxi_dog",
+        "title": "Listar solicitações de Taxi Dog",
+        "description": "Retorna as solicitações de Taxi Dog do usuário.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_pagamentos",
+        "title": "Listar pagamentos",
+        "description": "Retorna o histórico de pagamentos do usuário (valores em reais).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_agendamento",
+        "title": "Solicitar agendamento",
+        "description": "Cria um novo agendamento de banho/tosa. O horário fica com status 'solicitado' até a equipe confirmar.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "pet_id": {
+              "type": "string",
+              "description": "UUID do pet (use list_pets)"
+            },
+            "servico": {
+              "type": "string",
+              "enum": [
+                "banho",
+                "tosa",
+                "banho_e_tosa",
+                "tosa_higienica",
+                "hidratacao"
+              ]
+            },
+            "data": {
+              "type": "string",
+              "description": "Data no formato YYYY-MM-DD"
+            },
+            "horario": {
+              "type": "string",
+              "description": "Horário HH:MM"
+            },
+            "observacoes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pet_id",
+            "servico",
+            "data",
+            "horario"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_taxi_dog",
+        "title": "Solicitar Taxi Dog",
+        "description": "Cria uma solicitação de busca/entrega do pet.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "pet_id": {
+              "type": "string"
+            },
+            "endereco_coleta": {
+              "type": "string"
+            },
+            "bairro": {
+              "type": "string"
+            },
+            "ponto_referencia": {
+              "type": "string"
+            },
+            "data": {
+              "type": "string",
+              "description": "YYYY-MM-DD"
+            },
+            "horario": {
+              "type": "string",
+              "description": "HH:MM"
+            },
+            "tipo": {
+              "type": "string",
+              "enum": [
+                "coleta",
+                "entrega",
+                "coleta_e_entrega"
+              ]
+            },
+            "agendamento_id": {
+              "description": "Vincular a agendamento existente",
+              "type": "string"
+            },
+            "observacoes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pet_id",
+            "endereco_coleta",
+            "bairro",
+            "data",
+            "horario",
+            "tipo"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
