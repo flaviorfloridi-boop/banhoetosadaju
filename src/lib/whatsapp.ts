@@ -1,4 +1,4 @@
-// Gerador de links wa.me — mensagens prontas p/ o cliente
+// Gerador de links wa.me — mensagens montadas a partir de templates editáveis
 const PHONE = "5511944811381";
 
 export function waLink(number: string | null | undefined, message: string): string {
@@ -7,40 +7,49 @@ export function waLink(number: string | null | undefined, message: string): stri
   return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 }
 
-export function msgAgendamentoStatus(petNome: string, servico: string, data: string, horario: string, status: string): string {
-  const dt = new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
-  const hr = horario.slice(0, 5);
-  const svc = servico.replace(/_/g, " ");
-  switch (status) {
-    case "confirmado":
-      return `Olá! 🐾 Seu agendamento do *${petNome}* (${svc}) foi confirmado para *${dt} às ${hr}*. Te esperamos! — Banho & Tosa da JU`;
-    case "em_andamento":
-      return `Oi! 🛁 O *${petNome}* já começou o ${svc}. Avisaremos quando estiver pronto. — Banho & Tosa da JU`;
-    case "concluido":
-      return `Prontinho! ✨ O *${petNome}* já está lindão e cheiroso. Pode buscar! — Banho & Tosa da JU`;
-    case "cancelado":
-      return `Olá! Precisamos cancelar o agendamento do *${petNome}* de ${dt}. Nos chame para remarcar. — Banho & Tosa da JU`;
-    default:
-      return `Atualização do agendamento do *${petNome}* (${svc}) — ${dt} às ${hr}. — Banho & Tosa da JU`;
-  }
+export type TemplateVars = Record<string, string | number | undefined | null>;
+
+/** Substitui {placeholders} pelas variáveis fornecidas. Chaves ausentes viram vazio. */
+export function renderTemplate(template: string, vars: TemplateVars): string {
+  return template.replace(/\{(\w+)\}/g, (_m, k: string) => {
+    const v = vars[k];
+    return v === undefined || v === null ? "" : String(v);
+  });
 }
 
-export function msgTaxiStatus(petNome: string, endereco: string, horario: string, status: string): string {
-  const hr = horario.slice(0, 5);
-  switch (status) {
-    case "confirmado":
-      return `Taxi Dog confirmado! 🚐 Passaremos em *${endereco}* para buscar o *${petNome}* às *${hr}*. — Banho & Tosa da JU`;
-    case "a_caminho":
-      return `Já estamos a caminho! 🚐💨 O motorista chega em ${endereco} em alguns minutinhos para o *${petNome}*. — Banho & Tosa da JU`;
-    case "concluido":
-      return `Missão cumprida! ✅ O *${petNome}* já foi entregue com segurança. — Banho & Tosa da JU`;
-    case "cancelado":
-      return `Precisamos cancelar o Taxi Dog do *${petNome}* de hoje. Nos chame para reagendar. — Banho & Tosa da JU`;
-    default:
-      return `Atualização do Taxi Dog do *${petNome}*. — Banho & Tosa da JU`;
-  }
+export type TemplateMap = Record<string, string>;
+
+/** Fallbacks caso a tabela mensagem_templates ainda não tenha uma chave. */
+export const DEFAULT_TEMPLATES: TemplateMap = {
+  "agendamento:confirmado": "Olá! 🐾 O agendamento do *{pet}* ({servico}) foi confirmado para *{data} às {horario}*. — Banho & Tosa da JU",
+  "agendamento:em_andamento": "Oi! 🛁 O *{pet}* já começou o {servico}. — Banho & Tosa da JU",
+  "agendamento:concluido": "Prontinho! ✨ O *{pet}* já está pronto para buscar. — Banho & Tosa da JU",
+  "agendamento:cancelado": "Olá! Precisamos cancelar o agendamento do *{pet}* de {data}. — Banho & Tosa da JU",
+  "taxi:confirmado": "Taxi Dog confirmado! 🚐 Buscamos o *{pet}* em {endereco} às *{horario}*. — Banho & Tosa da JU",
+  "taxi:a_caminho": "Estamos a caminho! 🚐💨 Chegando em {endereco} para o *{pet}*. — Banho & Tosa da JU",
+  "taxi:concluido": "Entregue com segurança! ✅ *{pet}* já está em casa. — Banho & Tosa da JU",
+  "taxi:cancelado": "Precisamos cancelar o Taxi Dog do *{pet}*. Nos chame para reagendar. — Banho & Tosa da JU",
+  "pacote:aviso_saldo": "Oi! 🐾 Pacote *{pacote}* do *{pet}*: *{saldo}* banho(s) disponível(is). — Banho & Tosa da JU",
+};
+
+export function agendamentoTemplateKey(status: string): string { return `agendamento:${status}`; }
+export function taxiTemplateKey(status: string): string { return `taxi:${status}`; }
+
+/** Monta variáveis padronizadas para um agendamento. */
+export function agendamentoVars(petNome: string, servico: string, data: string, horario: string): TemplateVars {
+  return {
+    pet: petNome,
+    servico: servico.replace(/_/g, " "),
+    data: new Date(data + "T00:00:00").toLocaleDateString("pt-BR"),
+    horario: horario.slice(0, 5),
+  };
 }
 
-export function msgPacoteAviso(petNome: string, pacote: string, saldoRestante: number): string {
-  return `Oi! 🐾 Só um lembrete: o pacote *${pacote}* do *${petNome}* tem *${saldoRestante} banho(s)* disponível(is). Quer agendar? — Banho & Tosa da JU`;
+export function taxiVars(petNome: string, endereco: string, horario: string): TemplateVars {
+  return { pet: petNome, endereco, horario: horario.slice(0, 5) };
+}
+
+export function buildMessage(templates: TemplateMap, key: string, vars: TemplateVars): string {
+  const tpl = templates[key] ?? DEFAULT_TEMPLATES[key] ?? "";
+  return renderTemplate(tpl, vars);
 }

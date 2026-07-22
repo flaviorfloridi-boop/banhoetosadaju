@@ -6,7 +6,16 @@ import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { TaxiMap, type TaxiStop } from "@/components/taxi-map";
-import { waLink, msgAgendamentoStatus, msgTaxiStatus } from "@/lib/whatsapp";
+import {
+  waLink,
+  buildMessage,
+  agendamentoTemplateKey,
+  taxiTemplateKey,
+  agendamentoVars,
+  taxiVars,
+  DEFAULT_TEMPLATES,
+} from "@/lib/whatsapp";
+import { useTemplates } from "@/hooks/use-templates";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   head: () => ({
@@ -29,7 +38,7 @@ interface GalleryRow { id: string; storage_path: string; legenda: string | null;
 
 function today() { return new Date().toISOString().slice(0, 10); }
 
-type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria";
+type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -41,6 +50,7 @@ function EquipePortal() {
   const [pets, setPets] = useState<Record<string, Pet>>({});
   const [profs, setProfs] = useState<Record<string, Prof>>({});
   const [limiteDia, setLimiteDia] = useState<number>(15);
+  const templates = useTemplates();
 
   useEffect(() => {
     if (loading) return;
@@ -121,6 +131,7 @@ function EquipePortal() {
           <TabBtn active={tab === "config"} onClick={() => setTab("config")}>Configurações</TabBtn>
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos dos pets</TabBtn>
           <TabBtn active={tab === "galeria"} onClick={() => setTab("galeria")}>Galeria site</TabBtn>
+          <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>Mensagens</TabBtn>
         </div>
 
         {tab === "agenda" && (
@@ -148,7 +159,7 @@ function EquipePortal() {
                   <div className="flex flex-col gap-2 items-end">
                     <StatusSelect value={a.status} options={["solicitado", "confirmado", "em_andamento", "concluido", "cancelado"]} onChange={(s) => updateAg(a.id, s)} />
                     {cli?.telefone && (
-                      <a href={waLink(cli.telefone, msgAgendamentoStatus(pet?.nome ?? "seu pet", a.servico, a.data, a.horario, a.status))}
+                      <a href={waLink(cli.telefone, buildMessage(templates, agendamentoTemplateKey(a.status), agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
                          target="_blank" rel="noreferrer"
                          className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                         📱 WhatsApp
@@ -194,7 +205,7 @@ function EquipePortal() {
                     <div className="flex flex-col gap-2 items-end">
                       <StatusSelect value={t.status} options={["solicitado", "confirmado", "a_caminho", "concluido", "cancelado"]} onChange={(s) => updateTd(t.id, s)} />
                       {cli?.telefone && (
-                        <a href={waLink(cli.telefone, msgTaxiStatus(pet?.nome ?? "seu pet", `${t.endereco_coleta}, ${t.bairro}`, t.horario, t.status))}
+                        <a href={waLink(cli.telefone, buildMessage(templates, taxiTemplateKey(t.status), taxiVars(pet?.nome ?? "seu pet", `${t.endereco_coleta}, ${t.bairro}`, t.horario)))}
                            target="_blank" rel="noreferrer"
                            className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                           📱 WhatsApp
@@ -212,7 +223,101 @@ function EquipePortal() {
         {tab === "config" && <ConfigTab limiteDia={limiteDia} onSaved={setLimiteDia} />}
         {tab === "fotos" && <PetPhotosTab ags={ags} pets={pets} />}
         {tab === "galeria" && <GaleriaTab />}
+        {tab === "mensagens" && <MensagensTab />}
       </div>
+    </div>
+  );
+}
+
+interface TplRow { chave: string; titulo: string; template: string; updated_at: string; }
+
+function MensagensTab() {
+  const [rows, setRows] = useState<TplRow[]>([]);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  useEffect(() => { void load(); }, []);
+  async function load() {
+    const { data, error } = await supabase.from("mensagem_templates").select("*").order("chave");
+    if (error) return toast.error(error.message);
+    setRows((data as TplRow[]) ?? []);
+  }
+  async function save(chave: string) {
+    const val = draft[chave];
+    if (val === undefined) return;
+    setSavingKey(chave);
+    const { error } = await supabase.from("mensagem_templates").update({ template: val }).eq("chave", chave);
+    setSavingKey(null);
+    if (error) return toast.error(error.message);
+    toast.success("Mensagem atualizada");
+    setDraft((d) => { const n = { ...d }; delete n[chave]; return n; });
+    void load();
+  }
+  async function resetDefault(chave: string) {
+    const def = DEFAULT_TEMPLATES[chave];
+    if (!def) return toast.error("Sem padrão para esta chave");
+    setDraft((d) => ({ ...d, [chave]: def }));
+  }
+
+  const grupos: Array<{ label: string; prefix: string }> = [
+    { label: "Taxi Dog", prefix: "taxi:" },
+    { label: "Banho & Tosa", prefix: "agendamento:" },
+    { label: "Pacotes", prefix: "pacote:" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-brand/5 border border-brand/20 rounded-2xl p-4 text-sm">
+        <p className="font-bold mb-2">📝 Placeholders disponíveis</p>
+        <p className="text-ink/70">
+          Use entre chaves: <code className="bg-card px-1 rounded">{"{pet}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{servico}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{data}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{horario}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{endereco}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{pacote}"}</code>{" "}
+          <code className="bg-card px-1 rounded">{"{saldo}"}</code>
+          . Eles são substituídos automaticamente quando o botão de WhatsApp for clicado.
+        </p>
+      </div>
+
+      {grupos.map((g) => {
+        const items = rows.filter((r) => r.chave.startsWith(g.prefix));
+        if (!items.length) return null;
+        return (
+          <div key={g.prefix} className="space-y-3">
+            <h3 className="font-serif text-xl">{g.label}</h3>
+            {items.map((r) => {
+              const val = draft[r.chave] ?? r.template;
+              const changed = draft[r.chave] !== undefined && draft[r.chave] !== r.template;
+              return (
+                <div key={r.chave} className="bg-card border border-border rounded-2xl p-5 space-y-2">
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-bold">{r.titulo}</p>
+                      <p className="text-xs text-ink/40 font-mono">{r.chave}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => resetDefault(r.chave)} className="text-xs border border-border px-3 py-1 rounded-full">
+                        Restaurar padrão
+                      </button>
+                      <button disabled={!changed || savingKey === r.chave} onClick={() => save(r.chave)}
+                        className="text-xs bg-brand text-primary-foreground px-3 py-1 rounded-full font-bold disabled:opacity-40">
+                        {savingKey === r.chave ? "Salvando..." : "Salvar"}
+                      </button>
+                    </div>
+                  </div>
+                  <textarea
+                    value={val}
+                    onChange={(e) => setDraft((d) => ({ ...d, [r.chave]: e.target.value }))}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm font-mono resize-y" />
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
