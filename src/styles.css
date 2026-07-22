@@ -62,12 +62,12 @@
 :root {
   --radius: 1rem;
   /* Palette (Warm artisan care) */
-  --brand: oklch(0.52 0.07 138);          /* #4A6741 olive */
-  --brand-light: oklch(0.96 0.03 115);    /* #F1F5E9 pale olive */
-  --accent: oklch(0.63 0.15 55);          /* #BC6C25 terracotta */
-  --accent-foreground: oklch(0.98 0.01 90);
-  --surface: oklch(0.98 0.01 90);         /* #F9F7F2 cream */
-  --ink: oklch(0.28 0.05 120);            /* #283618 deep olive */
+  --brand: oklch(0.48 0.08 130);          /* olive from logo paw */
+  --brand-light: oklch(0.96 0.025 115);   /* pale olive cream */
+  --accent: oklch(0.58 0.09 115);         /* warm sage/olive-gold accent */
+  --accent-foreground: oklch(0.99 0.005 90);
+  --surface: oklch(0.985 0.008 90);       /* cream white */
+  --ink: oklch(0.27 0.04 130);            /* deep olive ink */
 
   --background: var(--surface);
   --foreground: var(--ink);
