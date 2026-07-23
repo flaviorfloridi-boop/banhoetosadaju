@@ -5,9 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
-import { StripeEmbeddedCheckout_Servico } from "@/components/StripeEmbeddedCheckout";
-import { paymentsConfigured } from "@/lib/stripe";
+import { waLink } from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/_authenticated/cliente")({
   head: () => ({
@@ -23,7 +21,6 @@ export const Route = createFileRoute("/_authenticated/cliente")({
 interface Pet { id: string; nome: string; especie: string; raca: string | null; porte: string | null; }
 interface Agendamento { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; }
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
-interface Pagamento { id: string; descricao: string; valor_cents: number; status: string; created_at: string; agendamento_id: string | null; }
 interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
 interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
 
@@ -32,11 +29,10 @@ export default function ClientePortal() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [ags, setAgs] = useState<Agendamento[]>([]);
   const [taxis, setTaxis] = useState<TaxiDog[]>([]);
-  const [pags, setPags] = useState<Pagamento[]>([]);
   const [precos, setPrecos] = useState<Preco[]>([]);
   const [photos, setPhotos] = useState<PetPhoto[]>([]);
   const [limiteDia, setLimiteDia] = useState<number>(15);
-  const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "pagamentos" | "fotos">("pets");
+  const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "precos" | "fotos">("pets");
 
   useEffect(() => {
     if (!user) return;
@@ -44,11 +40,10 @@ export default function ClientePortal() {
   }, [user]);
 
   async function loadAll() {
-    const [p, a, t, pg, pr, ph, cfg] = await Promise.all([
+    const [p, a, t, pr, ph, cfg] = await Promise.all([
       supabase.from("pets").select("*").order("created_at"),
       supabase.from("agendamentos").select("*").order("data", { ascending: false }).limit(20),
       supabase.from("taxi_dog").select("*").order("data", { ascending: false }).limit(20),
-      supabase.from("pagamentos").select("*").order("created_at", { ascending: false }).limit(30),
       supabase.from("service_prices").select("chave,nome,categoria,valor_cents,descricao").eq("ativo", true).order("ordem"),
       supabase.from("pet_photos").select("id,pet_id,storage_path,legenda,created_at").order("created_at", { ascending: false }),
       supabase.from("app_settings").select("valor").eq("chave", "limite_banhos_dia").maybeSingle(),
@@ -56,7 +51,6 @@ export default function ClientePortal() {
     setPets((p.data as Pet[]) ?? []);
     setAgs((a.data as Agendamento[]) ?? []);
     setTaxis((t.data as TaxiDog[]) ?? []);
-    setPags((pg.data as Pagamento[]) ?? []);
     setPrecos((pr.data as Preco[]) ?? []);
     setPhotos((ph.data as PetPhoto[]) ?? []);
     const v = cfg.data?.valor as number | undefined;
@@ -66,13 +60,12 @@ export default function ClientePortal() {
   return (
     <div className="min-h-screen bg-surface">
       <Toaster />
-      <PaymentTestModeBanner />
       <SiteHeader />
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
         <div className="flex items-baseline justify-between mb-6">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl">Olá, {profile?.nome || "tutor"} 👋</h1>
-            <p className="text-ink/60 text-sm mt-1">Pets, agendamentos, Taxi Dog, pagamentos e fotos</p>
+            <p className="text-ink/60 text-sm mt-1">Pets, agendamentos, Taxi Dog, preços e fotos</p>
           </div>
           {(profile?.role === "funcionario" || profile?.role === "admin") && (
             <Link to="/equipe" className="text-sm text-accent font-bold hover:underline">Ir para portal da equipe →</Link>
@@ -83,14 +76,14 @@ export default function ClientePortal() {
           <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
           <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog</TabBtn>
-          <TabBtn active={tab === "pagamentos"} onClick={() => setTab("pagamentos")}>Pagamentos</TabBtn>
+          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos do meu pet</TabBtn>
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
-        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} onChange={loadAll} userId={user?.id} />}
+        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} />}
         {tab === "taxi" && <TaxiTab pets={pets} taxis={taxis} ags={ags} onChange={loadAll} userId={user?.id} />}
-        {tab === "pagamentos" && <PagamentosTab pags={pags} precos={precos} ags={ags} pets={pets} onChange={loadAll} />}
+        {tab === "precos" && <PrecosTab precos={precos} />}
         {tab === "fotos" && <FotosTab photos={photos} pets={pets} />}
       </div>
     </div>
