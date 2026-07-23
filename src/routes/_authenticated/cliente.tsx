@@ -178,7 +178,7 @@ function PetsTab({ pets, onChange }: { pets: Pet[]; onChange: () => void }) {
   );
 }
 
-function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number; onChange: () => void; userId?: string }) {
+function AgendarTab({ pets, ags, precos, limiteDia }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number }) {
   const [petId, setPetId] = useState("");
   const [servico, setServico] = useState("banho");
   const [data, setData] = useState("");
@@ -198,18 +198,22 @@ function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: 
   const cheio = ocupacao !== null && ocupacao >= limiteDia;
   const servicos = precos.filter((p) => p.categoria === "servico" || p.categoria === "banho" || p.categoria === "tosa");
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!userId || !petId) return;
+    if (!petId) return;
     if (cheio) { toast.error(`Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.`); return; }
-    const { error } = await supabase.from("agendamentos").insert({
-      cliente_id: userId, pet_id: petId,
-      servico: servico as "banho" | "tosa" | "banho_e_tosa" | "tosa_higienica" | "hidratacao",
-      data, horario, observacoes: obs || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Agendamento solicitado!");
-    setPetId(""); setData(""); setHorario(""); setObs(""); onChange();
+    const pet = pets.find((p) => p.id === petId);
+    const dataFmt = new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
+    const msg =
+      `Olá! Gostaria de agendar um horário 🐾\n\n` +
+      `• Pet: ${pet?.nome ?? ""}\n` +
+      `• Serviço: ${servico.replace(/_/g, " ")}\n` +
+      `• Data: ${dataFmt}\n` +
+      `• Horário: ${horario}\n` +
+      (obs ? `• Observações: ${obs}\n` : "") +
+      `\nPode confirmar pra mim? Obrigado!`;
+    window.open(waLink(null, msg), "_blank");
+    toast.success("Abrindo WhatsApp para confirmar seu horário…");
   }
 
   return (
@@ -238,8 +242,9 @@ function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: 
         )}
         <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Observações (opcional)" className="w-full px-4 py-2 rounded-lg border border-border bg-surface" />
         <button disabled={!pets.length || cheio} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
-          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Solicitar agendamento"}
+          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Enviar pedido pelo WhatsApp"}
         </button>
+        <p className="text-[11px] text-ink/50 text-center">O pagamento é combinado direto pelo WhatsApp. A equipe confirma o horário manualmente.</p>
         {servicos.length > 0 && (
           <details className="text-xs text-ink/60 mt-2">
             <summary className="cursor-pointer font-bold">Ver tabela de preços</summary>
