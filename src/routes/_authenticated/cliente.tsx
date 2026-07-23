@@ -5,9 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { SiteHeader } from "@/components/site-header";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
-import { StripeEmbeddedCheckout_Servico } from "@/components/StripeEmbeddedCheckout";
-import { paymentsConfigured } from "@/lib/stripe";
+import { waLink } from "@/lib/whatsapp";
 
 export const Route = createFileRoute("/_authenticated/cliente")({
   head: () => ({
@@ -23,7 +21,6 @@ export const Route = createFileRoute("/_authenticated/cliente")({
 interface Pet { id: string; nome: string; especie: string; raca: string | null; porte: string | null; }
 interface Agendamento { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; }
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
-interface Pagamento { id: string; descricao: string; valor_cents: number; status: string; created_at: string; agendamento_id: string | null; }
 interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
 interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
 
@@ -32,11 +29,10 @@ export default function ClientePortal() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [ags, setAgs] = useState<Agendamento[]>([]);
   const [taxis, setTaxis] = useState<TaxiDog[]>([]);
-  const [pags, setPags] = useState<Pagamento[]>([]);
   const [precos, setPrecos] = useState<Preco[]>([]);
   const [photos, setPhotos] = useState<PetPhoto[]>([]);
   const [limiteDia, setLimiteDia] = useState<number>(15);
-  const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "pagamentos" | "fotos">("pets");
+  const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "precos" | "fotos">("pets");
 
   useEffect(() => {
     if (!user) return;
@@ -44,11 +40,10 @@ export default function ClientePortal() {
   }, [user]);
 
   async function loadAll() {
-    const [p, a, t, pg, pr, ph, cfg] = await Promise.all([
+    const [p, a, t, pr, ph, cfg] = await Promise.all([
       supabase.from("pets").select("*").order("created_at"),
       supabase.from("agendamentos").select("*").order("data", { ascending: false }).limit(20),
       supabase.from("taxi_dog").select("*").order("data", { ascending: false }).limit(20),
-      supabase.from("pagamentos").select("*").order("created_at", { ascending: false }).limit(30),
       supabase.from("service_prices").select("chave,nome,categoria,valor_cents,descricao").eq("ativo", true).order("ordem"),
       supabase.from("pet_photos").select("id,pet_id,storage_path,legenda,created_at").order("created_at", { ascending: false }),
       supabase.from("app_settings").select("valor").eq("chave", "limite_banhos_dia").maybeSingle(),
@@ -56,7 +51,6 @@ export default function ClientePortal() {
     setPets((p.data as Pet[]) ?? []);
     setAgs((a.data as Agendamento[]) ?? []);
     setTaxis((t.data as TaxiDog[]) ?? []);
-    setPags((pg.data as Pagamento[]) ?? []);
     setPrecos((pr.data as Preco[]) ?? []);
     setPhotos((ph.data as PetPhoto[]) ?? []);
     const v = cfg.data?.valor as number | undefined;
@@ -66,13 +60,12 @@ export default function ClientePortal() {
   return (
     <div className="min-h-screen bg-surface">
       <Toaster />
-      <PaymentTestModeBanner />
       <SiteHeader />
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-8">
         <div className="flex items-baseline justify-between mb-6">
           <div>
             <h1 className="font-serif text-3xl md:text-4xl">Olá, {profile?.nome || "tutor"} 👋</h1>
-            <p className="text-ink/60 text-sm mt-1">Pets, agendamentos, Taxi Dog, pagamentos e fotos</p>
+            <p className="text-ink/60 text-sm mt-1">Pets, agendamentos, Taxi Dog, preços e fotos</p>
           </div>
           {(profile?.role === "funcionario" || profile?.role === "admin") && (
             <Link to="/equipe" className="text-sm text-accent font-bold hover:underline">Ir para portal da equipe →</Link>
@@ -83,14 +76,14 @@ export default function ClientePortal() {
           <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
           <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog</TabBtn>
-          <TabBtn active={tab === "pagamentos"} onClick={() => setTab("pagamentos")}>Pagamentos</TabBtn>
+          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos do meu pet</TabBtn>
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
-        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} onChange={loadAll} userId={user?.id} />}
+        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} />}
         {tab === "taxi" && <TaxiTab pets={pets} taxis={taxis} ags={ags} onChange={loadAll} userId={user?.id} />}
-        {tab === "pagamentos" && <PagamentosTab pags={pags} precos={precos} ags={ags} pets={pets} onChange={loadAll} />}
+        {tab === "precos" && <PrecosTab precos={precos} />}
         {tab === "fotos" && <FotosTab photos={photos} pets={pets} />}
       </div>
     </div>
@@ -185,7 +178,7 @@ function PetsTab({ pets, onChange }: { pets: Pet[]; onChange: () => void }) {
   );
 }
 
-function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number; onChange: () => void; userId?: string }) {
+function AgendarTab({ pets, ags, precos, limiteDia }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number }) {
   const [petId, setPetId] = useState("");
   const [servico, setServico] = useState("banho");
   const [data, setData] = useState("");
@@ -205,18 +198,22 @@ function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: 
   const cheio = ocupacao !== null && ocupacao >= limiteDia;
   const servicos = precos.filter((p) => p.categoria === "servico" || p.categoria === "banho" || p.categoria === "tosa");
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!userId || !petId) return;
+    if (!petId) return;
     if (cheio) { toast.error(`Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.`); return; }
-    const { error } = await supabase.from("agendamentos").insert({
-      cliente_id: userId, pet_id: petId,
-      servico: servico as "banho" | "tosa" | "banho_e_tosa" | "tosa_higienica" | "hidratacao",
-      data, horario, observacoes: obs || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success("Agendamento solicitado!");
-    setPetId(""); setData(""); setHorario(""); setObs(""); onChange();
+    const pet = pets.find((p) => p.id === petId);
+    const dataFmt = new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
+    const msg =
+      `Olá! Gostaria de agendar um horário 🐾\n\n` +
+      `• Pet: ${pet?.nome ?? ""}\n` +
+      `• Serviço: ${servico.replace(/_/g, " ")}\n` +
+      `• Data: ${dataFmt}\n` +
+      `• Horário: ${horario}\n` +
+      (obs ? `• Observações: ${obs}\n` : "") +
+      `\nPode confirmar pra mim? Obrigado!`;
+    window.open(waLink(null, msg), "_blank");
+    toast.success("Abrindo WhatsApp para confirmar seu horário…");
   }
 
   return (
@@ -245,8 +242,9 @@ function AgendarTab({ pets, ags, precos, limiteDia, onChange, userId }: { pets: 
         )}
         <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Observações (opcional)" className="w-full px-4 py-2 rounded-lg border border-border bg-surface" />
         <button disabled={!pets.length || cheio} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
-          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Solicitar agendamento"}
+          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Enviar pedido pelo WhatsApp"}
         </button>
+        <p className="text-[11px] text-ink/50 text-center">O pagamento é combinado direto pelo WhatsApp. A equipe confirma o horário manualmente.</p>
         {servicos.length > 0 && (
           <details className="text-xs text-ink/60 mt-2">
             <summary className="cursor-pointer font-bold">Ver tabela de preços</summary>
@@ -379,90 +377,36 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function PagamentosTab({ pags, precos, ags, pets, onChange }: { pags: Pagamento[]; precos: Preco[]; ags: Agendamento[]; pets: Pet[]; onChange: () => void }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [customPrice, setCustomPrice] = useState<Preco | null>(null);
-  const [customAg, setCustomAg] = useState<string>("");
-
-  const pendentesPorAg = useMemo(() => {
-    const set = new Set(pags.filter((p) => p.status === "pago").map((p) => p.agendamento_id).filter(Boolean));
-    return set as Set<string>;
-  }, [pags]);
-
-  const agsPendentes = ags.filter((a) => a.status !== "cancelado" && !pendentesPorAg.has(a.id));
-
-  function petLabel(agId: string) {
-    const a = ags.find((x) => x.id === agId);
-    const pet = pets.find((p) => p.id === a?.pet_id);
-    return `${pet?.nome ?? "Pet"} — ${a?.servico.replace(/_/g, " ")} (${a ? new Date(a.data).toLocaleDateString("pt-BR") : ""})`;
-  }
-
-  if (!paymentsConfigured()) {
+function PrecosTab({ precos }: { precos: Preco[] }) {
+  if (!precos.length) {
     return (
       <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center text-ink/60">
-        Pagamentos online ainda não estão ativos. Você pode pagar direto na loja.
+        A tabela de preços será publicada em breve.
       </div>
     );
   }
-
+  const grupos = Array.from(new Set(precos.map((p) => p.categoria)));
   return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <div className="space-y-4">
-        <h3 className="font-serif text-xl">Pagar um serviço</h3>
-        <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
-          <p className="text-sm text-ink/60">Escolha um serviço ou um agendamento pendente:</p>
-          <select onChange={(e) => { setCustomAg(e.target.value); setCustomPrice(null); }} value={customAg} className="w-full px-4 py-2 rounded-lg border border-border bg-surface">
-            <option value="">— Escolher agendamento pendente —</option>
-            {agsPendentes.map((a) => <option key={a.id} value={a.id}>{petLabel(a.id)}</option>)}
-          </select>
-          <div className="grid grid-cols-1 gap-2">
-            {precos.map((p) => (
-              <button key={p.chave} onClick={() => { setCustomPrice(p); setCustomAg(""); setOpenId(p.chave); }}
-                className={"flex justify-between items-center px-4 py-3 rounded-xl border text-left transition " + (customPrice?.chave === p.chave ? "border-brand bg-brand/5" : "border-border hover:border-brand/40")}>
-                <span className="text-sm font-medium">{p.nome}</span>
-                <span className="font-mono font-bold text-brand">R$ {(p.valor_cents / 100).toFixed(2)}</span>
-              </button>
+    <div className="space-y-6">
+      <p className="text-sm text-ink/60">
+        Os pagamentos são combinados direto pelo WhatsApp com a equipe. Confira abaixo os valores dos nossos serviços e pacotes.
+      </p>
+      {grupos.map((g) => (
+        <div key={g} className="bg-card border border-border rounded-2xl p-5">
+          <h3 className="font-serif text-xl mb-3 capitalize">{g.replace(/_/g, " ")}</h3>
+          <ul className="divide-y divide-border">
+            {precos.filter((p) => p.categoria === g).map((p) => (
+              <li key={p.chave} className="py-3 flex justify-between items-start gap-4">
+                <div>
+                  <p className="font-medium">{p.nome}</p>
+                  {p.descricao && <p className="text-xs text-ink/50 mt-0.5">{p.descricao}</p>}
+                </div>
+                <span className="font-mono font-bold text-brand whitespace-nowrap">R$ {(p.valor_cents / 100).toFixed(2)}</span>
+              </li>
             ))}
-          </div>
-          {(customPrice || customAg) && (
-            <button onClick={() => setOpenId("checkout")} className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold">
-              Pagar com cartão
-            </button>
-          )}
+          </ul>
         </div>
-
-        {openId === "checkout" && (customPrice || customAg) && (
-          <div className="bg-card border border-border rounded-2xl p-2">
-            <StripeEmbeddedCheckout_Servico
-              descricao={customPrice?.nome ?? petLabel(customAg)}
-              amountInCents={customPrice?.valor_cents ?? 0}
-              agendamentoId={customAg || undefined}
-            />
-            {!customPrice && (
-              <p className="p-3 text-xs text-ink/50">
-                Valor a ser confirmado na loja. Para pagar valor exato, escolha um serviço na lista.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-3">
-        <h3 className="font-serif text-xl">Meus pagamentos</h3>
-        {pags.length === 0 && <p className="text-ink/50 text-sm">Nenhum pagamento ainda.</p>}
-        {pags.map((p) => (
-          <div key={p.id} className="bg-card border border-border rounded-xl p-4 flex justify-between items-center">
-            <div>
-              <p className="font-bold text-sm">{p.descricao}</p>
-              <p className="text-xs text-ink/50">{new Date(p.created_at).toLocaleString("pt-BR")}</p>
-            </div>
-            <div className="text-right">
-              <p className="font-mono font-bold">R$ {(p.valor_cents / 100).toFixed(2)}</p>
-              <StatusBadge status={p.status} />
-            </div>
-          </div>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }

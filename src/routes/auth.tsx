@@ -64,8 +64,10 @@ function AuthPage() {
         });
         if (error) throw error;
         if (data.user && !data.session) {
-          toast.success("Cadastro criado! Verifique seu e-mail para confirmar.");
-          return;
+          // Auto-confirm está ativo — tenta login direto para não travar o fluxo.
+          const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) throw signInError;
+          if (signIn.user) { await afterAuth(signIn.user.id); return; }
         }
         if (data.user) await afterAuth(data.user.id);
       } else {
