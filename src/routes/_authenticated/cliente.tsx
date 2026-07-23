@@ -23,6 +23,12 @@ interface Agendamento { id: string; data: string; horario: string; servico: stri
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
 interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
 interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
+interface Pacote { id: string; total_banhos: number; banhos_usados: number; mes_referencia: string; ativo: boolean; }
+
+function mesReferenciaAtual(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
 
 export default function ClientePortal() {
   const { profile, user } = useAuth();
@@ -31,6 +37,7 @@ export default function ClientePortal() {
   const [taxis, setTaxis] = useState<TaxiDog[]>([]);
   const [precos, setPrecos] = useState<Preco[]>([]);
   const [photos, setPhotos] = useState<PetPhoto[]>([]);
+  const [pacote, setPacote] = useState<Pacote | null>(null);
   const [limiteDia, setLimiteDia] = useState<number>(15);
   const [tab, setTab] = useState<"pets" | "agendar" | "taxi" | "precos" | "fotos">("pets");
 
@@ -40,19 +47,22 @@ export default function ClientePortal() {
   }, [user]);
 
   async function loadAll() {
-    const [p, a, t, pr, ph, cfg] = await Promise.all([
+    const [p, a, t, pr, ph, cfg, pac] = await Promise.all([
       supabase.from("pets").select("*").order("created_at"),
       supabase.from("agendamentos").select("*").order("data", { ascending: false }).limit(20),
       supabase.from("taxi_dog").select("*").order("data", { ascending: false }).limit(20),
       supabase.from("service_prices").select("chave,nome,categoria,valor_cents,descricao").eq("ativo", true).order("ordem"),
       supabase.from("pet_photos").select("id,pet_id,storage_path,legenda,created_at").order("created_at", { ascending: false }),
       supabase.from("app_settings").select("valor").eq("chave", "limite_banhos_dia").maybeSingle(),
+      supabase.from("pacotes_cliente").select("id,total_banhos,banhos_usados,mes_referencia,ativo")
+        .eq("mes_referencia", mesReferenciaAtual()).eq("ativo", true).maybeSingle(),
     ]);
     setPets((p.data as Pet[]) ?? []);
     setAgs((a.data as Agendamento[]) ?? []);
     setTaxis((t.data as TaxiDog[]) ?? []);
     setPrecos((pr.data as Preco[]) ?? []);
     setPhotos((ph.data as PetPhoto[]) ?? []);
+    setPacote((pac.data as Pacote | null) ?? null);
     const v = cfg.data?.valor as number | undefined;
     if (typeof v === "number") setLimiteDia(v);
   }
@@ -72,6 +82,8 @@ export default function ClientePortal() {
           )}
         </div>
 
+        {pacote && <PacoteCard pacote={pacote} />}
+
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
           <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
@@ -86,6 +98,43 @@ export default function ClientePortal() {
         {tab === "precos" && <PrecosTab precos={precos} />}
         {tab === "fotos" && <FotosTab photos={photos} pets={pets} />}
       </div>
+    </div>
+  );
+}
+
+function PacoteCard({ pacote }: { pacote: Pacote }) {
+  const restantes = Math.max(pacote.total_banhos - pacote.banhos_usados, 0);
+  const esgotado = restantes === 0;
+  const ultimoBanho = restantes === 1;
+  const pct = Math.min((pacote.banhos_usados / pacote.total_banhos) * 100, 100);
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-5 mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-serif text-lg">Meu pacote mensal</h3>
+        <span className="text-sm font-bold text-brand">
+          {pacote.banhos_usados} de {pacote.total_banhos} banhos usados
+        </span>
+      </div>
+      <div className="w-full h-3 rounded-full bg-surface border border-border overflow-hidden">
+        <div
+          className={"h-full rounded-full transition-all " + (esgotado ? "bg-destructive" : "bg-brand")}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {ultimoBanho && (
+        <p className="mt-3 text-sm font-bold text-accent bg-accent/10 rounded-lg px-3 py-2">
+          ⚠️ Este é o seu último banho disponível no pacote deste mês! Os próximos serão avulsos, a menos que renove.
+        </p>
+      )}
+      {esgotado && (
+        <p className="mt-3 text-sm font-bold text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+          🔔 Seu pacote mensal já foi todo utilizado. Os próximos banhos serão cobrados avulsos — fale com a gente para renovar.
+        </p>
+      )}
+      {!ultimoBanho && !esgotado && (
+        <p className="mt-2 text-xs text-ink/50">Restam {restantes} banho(s) disponível(is) este mês.</p>
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import {
   agendamentoVars,
   taxiVars,
   DEFAULT_TEMPLATES,
+  type TemplateMap,
 } from "@/lib/whatsapp";
 import { useTemplates } from "@/hooks/use-templates";
 
@@ -28,17 +29,23 @@ export const Route = createFileRoute("/_authenticated/equipe")({
   component: EquipePortal,
 });
 
-interface Ag { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; cliente_id: string; observacoes: string | null; }
+interface Ag { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; cliente_id: string; observacoes: string | null; pacote_id: string | null; }
 interface Td { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; ponto_referencia: string | null; pet_id: string; cliente_id: string; observacoes: string | null; agendamento_id: string | null; }
 interface Pet { id: string; nome: string; raca: string | null; porte: string | null; }
 interface Prof { id: string; nome: string | null; telefone: string | null; }
 interface Preco { chave: string; nome: string; categoria: string; descricao: string | null; valor_cents: number; ativo: boolean; ordem: number; }
 interface PetPhotoRow { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
 interface GalleryRow { id: string; storage_path: string; legenda: string | null; publicado: boolean; ordem: number; }
+interface PacoteRow { id: string; cliente_id: string; mes_referencia: string; total_banhos: number; banhos_usados: number; ativo: boolean; }
+interface Pagamento { id: string; agendamento_id: string | null; valor_cents: number; status: string; descricao: string; }
 
 function today() { return new Date().toISOString().slice(0, 10); }
+function mesReferenciaAtual(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+}
 
-type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens";
+type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -50,6 +57,8 @@ function EquipePortal() {
   const [pets, setPets] = useState<Record<string, Pet>>({});
   const [profs, setProfs] = useState<Record<string, Prof>>({});
   const [limiteDia, setLimiteDia] = useState<number>(15);
+  const [pacotes, setPacotes] = useState<PacoteRow[]>([]);
+  const [clientes, setClientes] = useState<Prof[]>([]);
   const templates = useTemplates();
 
   useEffect(() => {
@@ -67,7 +76,17 @@ function EquipePortal() {
       const v = data?.valor as number | undefined;
       if (typeof v === "number") setLimiteDia(v);
     })();
+    void loadPacotes();
+    (async () => {
+      const { data } = await supabase.from("profiles").select("id,nome,telefone").eq("role", "cliente").order("nome");
+      setClientes((data as Prof[]) ?? []);
+    })();
   }, []);
+
+  async function loadPacotes() {
+    const { data } = await supabase.from("pacotes_cliente").select("*").eq("mes_referencia", mesReferenciaAtual()).order("created_at", { ascending: false });
+    setPacotes((data as PacoteRow[]) ?? []);
+  }
 
   async function load() {
     const [a, t] = await Promise.all([
@@ -100,6 +119,24 @@ function EquipePortal() {
     if (error) return toast.error(error.message);
     toast.success("Atualizado");
     void load();
+    void loadPacotes();
+  }
+  async function assignPacote(id: string, pacoteId: string | null) {
+    const { error } = await supabase.from("agendamentos").update({ pacote_id: pacoteId }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(pacoteId ? "Vinculado ao pacote" : "Marcado como avulso");
+    void load();
+  }
+  async function criarPacote(clienteId: string) {
+    const { error } = await supabase.from("pacotes_cliente").insert({
+      cliente_id: clienteId,
+      mes_referencia: mesReferenciaAtual(),
+      total_banhos: 4,
+      banhos_usados: 0,
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Pacote criado para este mês");
+    void loadPacotes();
   }
   async function updateTd(id: string, status: string) {
     const { error } = await supabase.from("taxi_dog").update({ status: status as "solicitado" | "confirmado" | "a_caminho" | "concluido" | "cancelado" }).eq("id", id);
@@ -127,6 +164,8 @@ function EquipePortal() {
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "agenda"} onClick={() => setTab("agenda")}>Banho & Tosa ({ags.length}/{limiteDia})</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog ({tds.length})</TabBtn>
+          <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>Fechamento do dia</TabBtn>
+          <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>Pacotes</TabBtn>
           <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
           <TabBtn active={tab === "config"} onClick={() => setTab("config")}>Configurações</TabBtn>
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos dos pets</TabBtn>
@@ -158,6 +197,11 @@ function EquipePortal() {
                   </div>
                   <div className="flex flex-col gap-2 items-end">
                     <StatusSelect value={a.status} options={["solicitado", "confirmado", "em_andamento", "concluido", "cancelado"]} onChange={(s) => updateAg(a.id, s)} />
+                    <PacoteSelect
+                      value={a.pacote_id}
+                      pacotes={pacotes.filter((pc) => pc.cliente_id === a.cliente_id && pc.ativo)}
+                      onChange={(pid) => assignPacote(a.id, pid)}
+                    />
                     {cli?.telefone && (
                       <a href={waLink(cli.telefone, buildMessage(templates, agendamentoTemplateKey(a.status), agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
                          target="_blank" rel="noreferrer"
@@ -219,6 +263,10 @@ function EquipePortal() {
           </div>
         )}
 
+        {tab === "fechamento" && <FechamentoTab ags={ags} pets={pets} profs={profs} date={date} />}
+        {tab === "pacotes" && (
+          <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} templates={templates} />
+        )}
         {tab === "precos" && <PrecosTab />}
         {tab === "config" && <ConfigTab limiteDia={limiteDia} onSaved={setLimiteDia} />}
         {tab === "fotos" && <PetPhotosTab ags={ags} pets={pets} />}
@@ -340,6 +388,176 @@ function StatusSelect({ value, options, onChange }: { value: string; options: st
     <select value={value} onChange={(e) => onChange(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm font-bold capitalize">
       {options.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
     </select>
+  );
+}
+
+function PacoteSelect({ value, pacotes, onChange }: { value: string | null; pacotes: PacoteRow[]; onChange: (id: string | null) => void }) {
+  if (pacotes.length === 0) {
+    return <span className="text-[11px] text-ink/40 px-1">Avulso (sem pacote ativo)</span>;
+  }
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value || null)}
+      className="px-3 py-1.5 rounded-lg border border-border bg-surface text-xs"
+    >
+      <option value="">Avulso</option>
+      {pacotes.map((pc) => (
+        <option key={pc.id} value={pc.id}>
+          Pacote ({pc.banhos_usados}/{pc.total_banhos} usados)
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<string, Pet>; profs: Record<string, Prof>; date: string }) {
+  const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+
+  const concluidos = ags.filter((a) => a.status === "concluido");
+  const doPacote = concluidos.filter((a) => a.pacote_id);
+  const avulsos = concluidos.filter((a) => !a.pacote_id);
+
+  useEffect(() => {
+    (async () => {
+      const ids = concluidos.map((a) => a.id);
+      if (ids.length === 0) { setPagamentos([]); return; }
+      const { data } = await supabase.from("pagamentos").select("id,agendamento_id,valor_cents,status,descricao").in("agendamento_id", ids).eq("status", "pago");
+      setPagamentos((data as Pagamento[]) ?? []);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ags, date]);
+
+  const totalRecebidoCents = pagamentos.reduce((sum, p) => sum + p.valor_cents, 0);
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <p className="text-xs text-ink/50">Total de banhos concluídos</p>
+          <p className="text-2xl font-bold text-brand">{concluidos.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <p className="text-xs text-ink/50">Banhos de pacote</p>
+          <p className="text-2xl font-bold">{doPacote.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <p className="text-xs text-ink/50">Banhos avulsos</p>
+          <p className="text-2xl font-bold">{avulsos.length}</p>
+        </div>
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <p className="text-xs text-ink/50">Recebido em avulsos (pago)</p>
+          <p className="text-2xl font-bold text-accent">R$ {(totalRecebidoCents / 100).toFixed(2)}</p>
+        </div>
+      </div>
+      <p className="text-[11px] text-ink/40">
+        O valor recebido considera apenas pagamentos com status "pago" vinculados aos agendamentos concluídos neste dia.
+        Banhos de pacote não geram receita nova (já foram pagos na assinatura mensal).
+      </p>
+
+      <div>
+        <h3 className="font-serif text-lg mb-2">Banhos de pacote ({doPacote.length})</h3>
+        {doPacote.length === 0 && <EmptyState label="Nenhum banho de pacote concluído neste dia." />}
+        <div className="space-y-2">
+          {doPacote.map((a) => (
+            <Card key={a.id}>
+              <div>
+                <p className="font-bold">{pets[a.pet_id]?.nome ?? "Pet"} — {a.servico.replace(/_/g, " ")}</p>
+                <p className="text-xs text-ink/50">{a.horario.slice(0, 5)} • {profs[a.cliente_id]?.nome ?? "Cliente"}</p>
+              </div>
+              <span className="text-xs font-bold bg-brand/10 text-brand px-3 py-1 rounded-full">Pacote</span>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-2">Banhos avulsos ({avulsos.length})</h3>
+        {avulsos.length === 0 && <EmptyState label="Nenhum banho avulso concluído neste dia." />}
+        <div className="space-y-2">
+          {avulsos.map((a) => {
+            const pag = pagamentos.find((p) => p.agendamento_id === a.id);
+            return (
+              <Card key={a.id}>
+                <div>
+                  <p className="font-bold">{pets[a.pet_id]?.nome ?? "Pet"} — {a.servico.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-ink/50">{a.horario.slice(0, 5)} • {profs[a.cliente_id]?.nome ?? "Cliente"}</p>
+                </div>
+                <span className="text-xs font-bold bg-accent/10 text-accent px-3 py-1 rounded-full">
+                  {pag ? `R$ ${(pag.valor_cents / 100).toFixed(2)} pago` : "Sem pagamento registrado"}
+                </span>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PacotesTab({
+  pacotes, clientes, profs, onCriar, onReload, templates,
+}: {
+  pacotes: PacoteRow[];
+  clientes: Prof[];
+  profs: Record<string, Prof>;
+  onCriar: (clienteId: string) => void;
+  onReload: () => void;
+  templates: TemplateMap;
+}) {
+  const [clienteId, setClienteId] = useState("");
+  const clientesComPacote = new Set(pacotes.map((p) => p.cliente_id));
+  const disponiveis = clientes.filter((c) => !clientesComPacote.has(c.id));
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <h3 className="font-serif text-lg mb-3">Criar pacote mensal (4 banhos)</h3>
+        <div className="flex flex-wrap gap-3 items-center">
+          <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface flex-1 min-w-[220px]">
+            <option value="">Escolha o cliente</option>
+            {disponiveis.map((c) => <option key={c.id} value={c.id}>{c.nome || c.telefone || c.id}</option>)}
+          </select>
+          <button
+            disabled={!clienteId}
+            onClick={() => { onCriar(clienteId); setClienteId(""); }}
+            className="px-5 py-2 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50"
+          >
+            Criar pacote este mês
+          </button>
+        </div>
+        <p className="text-[11px] text-ink/40 mt-2">Clientes que já têm pacote ativo neste mês não aparecem na lista.</p>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">Pacotes ativos este mês ({pacotes.length})</h3>
+        {pacotes.length === 0 && <EmptyState label="Nenhum pacote criado este mês ainda." />}
+        <div className="space-y-2">
+          {pacotes.map((pc) => {
+            const cli = profs[pc.cliente_id] ?? clientes.find((c) => c.id === pc.cliente_id);
+            const restantes = Math.max(pc.total_banhos - pc.banhos_usados, 0);
+            const msg = buildMessage(templates, "pacote:aviso_saldo", { pacote: "Pacote mensal — 4 banhos", pet: cli?.nome ?? "cliente", saldo: restantes });
+            return (
+              <Card key={pc.id}>
+                <div className="flex-1">
+                  <p className="font-bold">{cli?.nome ?? "Cliente"}</p>
+                  <p className="text-xs text-ink/50">{pc.banhos_usados}/{pc.total_banhos} banhos usados — {restantes} restante(s)</p>
+                  <div className="w-full h-2 rounded-full bg-surface border border-border overflow-hidden mt-2 max-w-xs">
+                    <div className="h-full bg-brand rounded-full" style={{ width: `${Math.min((pc.banhos_usados / pc.total_banhos) * 100, 100)}%` }} />
+                  </div>
+                </div>
+                {cli?.telefone && (
+                  <a href={waLink(cli.telefone, msg)} target="_blank" rel="noreferrer"
+                     className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                    📱 Avisar saldo
+                  </a>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 

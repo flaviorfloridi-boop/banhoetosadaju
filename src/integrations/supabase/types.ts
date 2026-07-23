@@ -22,6 +22,7 @@ export type Database = {
           horario: string
           id: string
           observacoes: string | null
+          pacote_id: string | null
           pet_id: string
           servico: Database["public"]["Enums"]["servico_tipo"]
           status: Database["public"]["Enums"]["agendamento_status"]
@@ -34,6 +35,7 @@ export type Database = {
           horario: string
           id?: string
           observacoes?: string | null
+          pacote_id?: string | null
           pet_id: string
           servico: Database["public"]["Enums"]["servico_tipo"]
           status?: Database["public"]["Enums"]["agendamento_status"]
@@ -46,6 +48,7 @@ export type Database = {
           horario?: string
           id?: string
           observacoes?: string | null
+          pacote_id?: string | null
           pet_id?: string
           servico?: Database["public"]["Enums"]["servico_tipo"]
           status?: Database["public"]["Enums"]["agendamento_status"]
@@ -57,6 +60,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agendamentos_pacote_id_fkey"
+            columns: ["pacote_id"]
+            isOneToOne: false
+            referencedRelation: "pacotes_cliente"
             referencedColumns: ["id"]
           },
           {
@@ -144,6 +154,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pacotes_cliente: {
+        Row: {
+          ativo: boolean
+          banhos_usados: number
+          cliente_id: string
+          created_at: string
+          id: string
+          mes_referencia: string
+          total_banhos: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          banhos_usados?: number
+          cliente_id: string
+          created_at?: string
+          id?: string
+          mes_referencia: string
+          total_banhos?: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          banhos_usados?: number
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          mes_referencia?: string
+          total_banhos?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pacotes_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pagamentos: {
         Row: {
@@ -509,6 +560,15 @@ export type Database = {
         Returns: boolean
       }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
+      saldo_pacote_atual: {
+        Args: { _cliente_id: string }
+        Returns: {
+          banhos_usados: number
+          id: string
+          mes_referencia: string
+          total_banhos: number
+        }[]
+      }
     }
     Enums: {
       agendamento_status:
