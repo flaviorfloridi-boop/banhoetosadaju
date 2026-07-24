@@ -45,7 +45,7 @@ function mesReferenciaAtual(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos";
+type Tab = "agenda" | "calendario" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -192,6 +192,7 @@ function EquipePortal() {
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "agenda"} onClick={() => setTab("agenda")}>Banho & Tosa ({ags.length}/{limiteDia})</TabBtn>
+          <TabBtn active={tab === "calendario"} onClick={() => setTab("calendario")}>📆 Calendário</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog ({tds.length})</TabBtn>
           <TabBtn active={tab === "avisos"} onClick={() => setTab("avisos")}>🔔 Central de Avisos</TabBtn>
           <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>Fechamento do dia</TabBtn>
@@ -276,6 +277,7 @@ function EquipePortal() {
           </div>
         )}
 
+        {tab === "calendario" && <CalendarioTab />}
         {tab === "taxi" && (
           <div className="space-y-6">
             {tds.length > 0 && (
@@ -674,6 +676,132 @@ function AvisosTab({
   );
 }
 
+const HORARIOS_GRADE = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+const DIAS_SEMANA_LABEL = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function getSegunda(d: Date): Date {
+  const dt = new Date(d);
+  const dia = dt.getDay();
+  const diff = dia === 0 ? -6 : 1 - dia;
+  dt.setDate(dt.getDate() + diff);
+  dt.setHours(0, 0, 0, 0);
+  return dt;
+}
+function addDias(d: Date, n: number): Date {
+  const dt = new Date(d);
+  dt.setDate(dt.getDate() + n);
+  return dt;
+}
+function isoDate(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+interface AgCalendario { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; pacote_id: string | null; }
+
+function CalendarioTab() {
+  const [inicioSemana, setInicioSemana] = useState(() => getSegunda(new Date()));
+  const [ags, setAgsSemana] = useState<AgCalendario[]>([]);
+  const [pets, setPetsMap] = useState<Record<string, { nome: string }>>({});
+  const [loading, setLoading] = useState(true);
+
+  const dias = Array.from({ length: 7 }, (_, i) => addDias(inicioSemana, i));
+  const fimSemana = dias[6];
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("agendamentos")
+        .select("id,data,horario,servico,status,pet_id,pacote_id")
+        .gte("data", isoDate(inicioSemana))
+        .lte("data", isoDate(fimSemana))
+        .neq("status", "cancelado");
+      const rows = (data as AgCalendario[]) ?? [];
+      setAgsSemana(rows);
+      const petIds = [...new Set(rows.map((r) => r.pet_id))];
+      if (petIds.length) {
+        const { data: p } = await supabase.from("pets").select("id,nome").in("id", petIds);
+        const map: Record<string, { nome: string }> = {};
+        (p as { id: string; nome: string }[] | null)?.forEach((x) => (map[x.id] = { nome: x.nome }));
+        setPetsMap(map);
+      } else setPetsMap({});
+      setLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inicioSemana.getTime()]);
+
+  function ags_em(dataStr: string, horario: string) {
+    return ags.filter((a) => a.data === dataStr && a.horario.slice(0, 5) === horario);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setInicioSemana((d) => addDias(d, -7))} className="size-8 grid place-items-center rounded-lg border border-border hover:bg-brand/5">‹</button>
+          <button onClick={() => setInicioSemana(getSegunda(new Date()))} className="text-xs font-bold border border-border rounded-lg px-3 py-1.5 hover:bg-brand/5">Hoje</button>
+          <button onClick={() => setInicioSemana((d) => addDias(d, 7))} className="size-8 grid place-items-center rounded-lg border border-border hover:bg-brand/5">›</button>
+          <span className="text-sm font-bold ml-2">
+            {inicioSemana.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} – {fimSemana.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+          </span>
+        </div>
+        <div className="flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-brand inline-block" /> Pacote</span>
+          <span className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-accent inline-block" /> Avulso</span>
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-ink/50">Carregando…</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse min-w-[720px]">
+            <thead>
+              <tr>
+                <th className="text-xs text-ink/40 font-normal p-2 w-16"></th>
+                {dias.map((d) => (
+                  <th key={isoDate(d)} className="text-xs font-bold p-2 border-b border-border text-center">
+                    {DIAS_SEMANA_LABEL[d.getDay()]} <span className="text-ink/40 font-normal">{d.getDate()}/{d.getMonth() + 1}</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {HORARIOS_GRADE.map((h) => (
+                <tr key={h}>
+                  <td className="text-xs font-mono text-ink/50 p-2 align-top border-t border-border">{h}</td>
+                  {dias.map((d) => {
+                    const itens = ags_em(isoDate(d), h);
+                    return (
+                      <td key={isoDate(d) + h} className="p-1.5 align-top border-t border-l border-border min-w-[110px]">
+                        <div className="space-y-1">
+                          {itens.map((a) => (
+                            <div
+                              key={a.id}
+                              className={
+                                "text-[10px] leading-tight rounded-lg px-2 py-1 font-bold text-white " +
+                                (a.pacote_id ? "bg-brand" : "bg-accent")
+                              }
+                              title={a.servico.replace(/_/g, " ")}
+                            >
+                              {pets[a.pet_id]?.nome ?? "Pet"}
+                              <div className="font-normal opacity-80 capitalize">{a.pacote_id ? "Pacote" : "Avulso"}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<string, Pet>; profs: Record<string, Prof>; date: string }) {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
 
@@ -754,6 +882,44 @@ function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<str
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function DatasPacote({ pacoteId }: { pacoteId: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [carregando, setCarregando] = useState(false);
+  const [datas, setDatas] = useState<{ id: string; data: string; horario: string; servico: string; status: string }[]>([]);
+
+  async function toggle() {
+    if (!aberto && datas.length === 0) {
+      setCarregando(true);
+      const { data } = await supabase.from("agendamentos").select("id,data,horario,servico,status").eq("pacote_id", pacoteId).order("data");
+      setDatas((data as typeof datas) ?? []);
+      setCarregando(false);
+    }
+    setAberto((v) => !v);
+  }
+
+  return (
+    <div className="mt-2">
+      <button onClick={toggle} className="text-[11px] font-bold text-brand hover:underline">
+        {aberto ? "Ocultar datas ▲" : "Ver datas deste pacote ▼"}
+      </button>
+      {aberto && (
+        <div className="mt-1.5">
+          {carregando && <p className="text-[11px] text-ink/40">Carregando…</p>}
+          {!carregando && datas.length === 0 && <p className="text-[11px] text-ink/40">Nenhum atendimento vinculado ainda.</p>}
+          <ul className="space-y-1">
+            {datas.map((d) => (
+              <li key={d.id} className="text-[11px] flex items-center justify-between gap-2">
+                <span>{new Date(d.data + "T00:00:00").toLocaleDateString("pt-BR")} às {d.horario.slice(0, 5)} — {d.servico.replace(/_/g, " ")}</span>
+                <span className="capitalize text-ink/50 font-medium">{d.status.replace(/_/g, " ")}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -852,6 +1018,7 @@ function PacotesTab({
                     <option value="pago">Pagamento: pago</option>
                     <option value="atrasado">Pagamento: atrasado</option>
                   </select>
+                  <DatasPacote pacoteId={pc.id} />
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   {cli?.telefone && (

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/_authenticated/cliente")({
 });
 
 interface Pet { id: string; nome: string; especie: string; raca: string | null; porte: string | null; }
-interface Agendamento { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; }
+interface Agendamento { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; pacote_id: string | null; }
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
 interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
 interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
@@ -81,7 +81,7 @@ export default function ClientePortal() {
           )}
         </div>
 
-        {pacote && <PacoteCard pacote={pacote} />}
+        {pacote && <PacoteCard pacote={pacote} ags={ags} />}
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
@@ -101,7 +101,7 @@ export default function ClientePortal() {
   );
 }
 
-function PacoteCard({ pacote }: { pacote: Pacote }) {
+function PacoteCard({ pacote, ags }: { pacote: Pacote; ags: Agendamento[] }) {
   const restantes = Math.max(pacote.total_banhos - pacote.banhos_usados, 0);
   const esgotado = restantes === 0;
   const ultimoBanho = restantes === 1;
@@ -111,6 +111,9 @@ function PacoteCard({ pacote }: { pacote: Pacote }) {
     new Date(pacote.periodo_inicio + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) +
     " – " +
     new Date(pacote.periodo_fim + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  const datasDoPacote = ags
+    .filter((a) => a.pacote_id === pacote.id)
+    .sort((a, b) => a.data.localeCompare(b.data));
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 mb-6">
@@ -148,6 +151,19 @@ function PacoteCard({ pacote }: { pacote: Pacote }) {
       )}
       {!ultimoBanho && !esgotado && (
         <p className="mt-2 text-xs text-ink/50">Restam {restantes} banho(s) disponível(is) neste ciclo.</p>
+      )}
+      {datasDoPacote.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-border">
+          <p className="text-xs font-bold text-ink/60 mb-2">Datas deste pacote</p>
+          <ul className="space-y-1.5">
+            {datasDoPacote.map((a) => (
+              <li key={a.id} className="flex items-center justify-between text-xs">
+                <span>{new Date(a.data + "T00:00:00").toLocaleDateString("pt-BR")} às {a.horario.slice(0, 5)} — {a.servico.replace(/_/g, " ")}</span>
+                <StatusBadge status={a.status} />
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
