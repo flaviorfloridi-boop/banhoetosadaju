@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import pet1 from "@/assets/pet-natal-1.jpg.asset.json";
 import pet2 from "@/assets/pet-natal-2.jpg.asset.json";
@@ -32,7 +32,7 @@ function Home() {
         .select("id, storage_path, legenda")
         .eq("publicado", true)
         .order("ordem").order("created_at", { ascending: false })
-        .limit(8);
+        .limit(20);
       if (!data?.length) return;
       const { data: signed } = await supabase.storage.from("gallery-photos")
         .createSignedUrls(data.map((r) => r.storage_path), 3600);
@@ -140,17 +140,7 @@ function Home() {
             Ver Instagram
           </a>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {galleryItems.map((p) => (
-            <img
-              key={p.id}
-              src={p.url}
-              alt={p.legenda ?? "Pet cliente"}
-              loading="lazy"
-              className="w-full aspect-square object-cover rounded-3xl shadow-sm"
-            />
-          ))}
-        </div>
+        <PetsCarousel items={galleryItems} />
       </section>
 
       {/* Portals CTA */}
@@ -194,6 +184,74 @@ function ServiceCard({ n, title, desc, img, highlight }: { n: string; title: str
       <h3 className="font-serif text-2xl mb-3">{title}</h3>
       <p className={"text-sm mb-6 " + (highlight ? "text-primary-foreground/80" : "text-ink/70")}>{desc}</p>
       <img src={img} alt={title} width={800} height={600} loading="lazy" className="w-full aspect-video object-cover rounded-2xl" />
+    </div>
+  );
+}
+
+function PetsCarousel({ items }: { items: { id: string; url: string; legenda: string | null }[] }) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(false);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    const timer = setInterval(() => {
+      if (pausedRef.current) return;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 8;
+      if (atEnd) {
+        el.scrollTo({ left: 0, behavior: "smooth" });
+      } else {
+        el.scrollBy({ left: el.clientWidth * 0.8, behavior: "smooth" });
+      }
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [items.length]);
+
+  function scrollByAmount(dir: 1 | -1) {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => (pausedRef.current = true)}
+      onMouseLeave={() => (pausedRef.current = false)}
+    >
+      <div
+        ref={trackRef}
+        className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2 no-scrollbar"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {items.map((p) => (
+          <img
+            key={p.id}
+            src={p.url}
+            alt={p.legenda ?? "Pet cliente"}
+            loading="lazy"
+            className="snap-start shrink-0 w-[46vw] sm:w-[260px] aspect-square object-cover rounded-3xl shadow-sm"
+          />
+        ))}
+      </div>
+      {items.length > 2 && (
+        <>
+          <button
+            aria-label="Anterior"
+            onClick={() => scrollByAmount(-1)}
+            className="hidden md:grid place-items-center absolute -left-4 top-1/2 -translate-y-1/2 size-10 rounded-full bg-card border border-border shadow-md hover:bg-brand/5"
+          >
+            ‹
+          </button>
+          <button
+            aria-label="Próxima"
+            onClick={() => scrollByAmount(1)}
+            className="hidden md:grid place-items-center absolute -right-4 top-1/2 -translate-y-1/2 size-10 rounded-full bg-card border border-border shadow-md hover:bg-brand/5"
+          >
+            ›
+          </button>
+        </>
+      )}
     </div>
   );
 }

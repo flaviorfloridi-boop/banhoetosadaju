@@ -150,3 +150,7 @@
     font-family: var(--font-serif);
   }
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
