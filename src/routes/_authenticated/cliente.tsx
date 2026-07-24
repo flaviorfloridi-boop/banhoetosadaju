@@ -227,6 +227,8 @@ function PetsTab({ pets, onChange }: { pets: Pet[]; onChange: () => void }) {
   );
 }
 
+const HORARIOS_DISPONIVEIS = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"];
+
 function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number; pacote: Pacote | null }) {
   const [petId, setPetId] = useState("");
   const [servico, setServico] = useState("banho");
@@ -234,15 +236,23 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
   const [horario, setHorario] = useState("");
   const [obs, setObs] = useState("");
   const [ocupacao, setOcupacao] = useState<number | null>(null);
+  const [horariosOcupados, setHorariosOcupados] = useState<Set<string>>(new Set());
   const restantesPacote = pacote ? Math.max(pacote.total_banhos - pacote.banhos_usados, 0) : 0;
   const [usarPacote, setUsarPacote] = useState(restantesPacote > 0);
 
   useEffect(() => {
     setOcupacao(null);
+    setHorario("");
+    setHorariosOcupados(new Set());
     if (!data) return;
     (async () => {
-      const { count } = await supabase.from("agendamentos").select("id", { count: "exact", head: true }).eq("data", data).neq("status", "cancelado");
-      setOcupacao(count ?? 0);
+      const [countRes, horariosRes] = await Promise.all([
+        supabase.from("agendamentos").select("id", { count: "exact", head: true }).eq("data", data).neq("status", "cancelado"),
+        supabase.from("agendamentos").select("horario").eq("data", data).neq("status", "cancelado"),
+      ]);
+      setOcupacao(countRes.count ?? 0);
+      const ocupados = new Set((horariosRes.data ?? []).map((r) => (r as { horario: string }).horario.slice(0, 5)));
+      setHorariosOcupados(ocupados);
     })();
   }, [data]);
 
@@ -252,6 +262,7 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!petId) return;
+    if (!horario) { toast.error("Escolha um horário disponível."); return; }
     if (cheio) { toast.error(`Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.`); return; }
     const pet = pets.find((p) => p.id === petId);
     const dataFmt = new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
@@ -296,17 +307,45 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
           <option value="hidratacao">Hidratação</option>
         </select>
         <div className="grid grid-cols-2 gap-3">
-          <input required type="date" value={data} onChange={(e) => setData(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface" />
-          <input required type="time" value={horario} onChange={(e) => setHorario(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface" />
+          <input required type="date" value={data} onChange={(e) => setData(e.target.value)} min={new Date().toISOString().slice(0, 10)} className="px-4 py-2 rounded-lg border border-border bg-surface" />
         </div>
+        {data && (
+          <div>
+            <p className="text-xs text-ink/50 mb-1.5">Horários disponíveis</p>
+            <div className="grid grid-cols-4 gap-2">
+              {HORARIOS_DISPONIVEIS.map((h) => {
+                const ocupado = horariosOcupados.has(h);
+                const selecionado = horario === h;
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    disabled={ocupado}
+                    onClick={() => setHorario(h)}
+                    className={
+                      "text-xs py-2 rounded-lg border font-bold transition " +
+                      (ocupado
+                        ? "border-border bg-surface text-ink/30 line-through cursor-not-allowed"
+                        : selecionado
+                          ? "border-brand bg-brand text-primary-foreground"
+                          : "border-border bg-surface hover:border-brand/50")
+                    }
+                  >
+                    {h}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {data && ocupacao !== null && (
           <p className={"text-xs " + (cheio ? "text-destructive font-bold" : "text-ink/60")}>
             {cheio ? `⚠️ Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.` : `${ocupacao}/${limiteDia} vagas ocupadas neste dia.`}
           </p>
         )}
         <textarea value={obs} onChange={(e) => setObs(e.target.value)} rows={2} placeholder="Observações (opcional)" className="w-full px-4 py-2 rounded-lg border border-border bg-surface" />
-        <button disabled={!pets.length || cheio} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
-          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : "Enviar pedido pelo WhatsApp"}
+        <button disabled={!pets.length || cheio || !horario} type="submit" className="w-full py-3 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
+          {!pets.length ? "Cadastre um pet primeiro" : cheio ? "Dia lotado" : !horario ? "Escolha um horário" : "Enviar pedido pelo WhatsApp"}
         </button>
         <p className="text-[11px] text-ink/50 text-center">O pagamento é combinado direto pelo WhatsApp. A equipe confirma o horário manualmente.</p>
         {servicos.length > 0 && (

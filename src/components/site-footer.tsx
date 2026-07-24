@@ -1,4 +1,5 @@
 import logoAsset from "@/assets/logo-banho-tosa-ju.png.asset.json";
+import { Link } from "@tanstack/react-router";
 
 export function SiteFooter() {
   return (
@@ -21,8 +22,7 @@ export function SiteFooter() {
         </div>
         <div className="text-xs md:text-right space-y-2">
           <div className="flex md:justify-end gap-5 font-medium">
-            <a href="#" className="hover:text-surface transition">Privacidade</a>
-            <a href="#" className="hover:text-surface transition">Termos</a>
+            <Link to="/privacidade" className="hover:text-surface transition">Privacidade</Link>
           </div>
           <p>© {new Date().getFullYear()} Banho &amp; Tosa da JU</p>
         </div>
