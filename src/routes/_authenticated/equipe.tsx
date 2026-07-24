@@ -258,14 +258,14 @@ function EquipePortal() {
                     />
                     {cli?.telefone && (
                       <a href={waLink(cli.telefone, buildMessage(templates, agendamentoTemplateKey(a.status), agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
-                         target="_blank" rel="noreferrer"
+                        
                          className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                         📱 WhatsApp
                       </a>
                     )}
                     {cli?.telefone && (
                       <a href={waLink(cli.telefone, buildMessage(templates, "agendamento:lembrete", agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
-                         target="_blank" rel="noreferrer"
+                        
                          className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90">
                         🔔 Lembrete
                       </a>
@@ -335,7 +335,7 @@ function EquipePortal() {
                       <StatusSelect value={t.status} options={["solicitado", "confirmado", "a_caminho", "concluido", "cancelado"]} onChange={(s) => updateTd(t.id, s)} />
                       {cli?.telefone && (
                         <a href={waLink(cli.telefone, buildMessage(templates, taxiTemplateKey(t.status), taxiVars(pet?.nome ?? "seu pet", `${t.endereco_coleta}, ${t.bairro}`, t.horario)))}
-                           target="_blank" rel="noreferrer"
+                          
                            className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90">
                           📱 WhatsApp
                         </a>
@@ -577,7 +577,7 @@ function AvisosTab({
                   <p className="text-xs text-ink/50">{a.horario.slice(0, 5)} • {nomeCliente(a.cliente_id)}</p>
                 </div>
                 {tel ? (
-                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                  <a href={waLink(tel, msg)}
                      className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                     🔔 Enviar lembrete
                   </a>
@@ -602,7 +602,7 @@ function AvisosTab({
                   <p className="text-xs text-ink/50">{pc.banhos_usados}/{pc.total_banhos} usados — resta só 1</p>
                 </div>
                 {tel ? (
-                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                  <a href={waLink(tel, msg)}
                      className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                     📱 Avisar último banho
                   </a>
@@ -631,7 +631,7 @@ function AvisosTab({
                   <p className="text-xs text-ink/50">{restantes} banho(s) sobrando neste ciclo ({pc.periodicidade === "quinzenal" ? "quinzenal" : "mensal"})</p>
                 </div>
                 {tel ? (
-                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                  <a href={waLink(tel, msg)}
                      className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                     ⏰ Avisar sobra
                   </a>
@@ -662,7 +662,7 @@ function AvisosTab({
                   </p>
                 </div>
                 {tel ? (
-                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                  <a href={waLink(tel, msg)}
                      className="text-xs bg-destructive text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                     💳 Cobrar pagamento
                   </a>
@@ -1022,19 +1022,19 @@ function PacotesTab({
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   {cli?.telefone && (
-                    <a href={waLink(cli.telefone, msgSaldo)} target="_blank" rel="noreferrer"
+                    <a href={waLink(cli.telefone, msgSaldo)}
                        className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                       📱 Avisar saldo
                     </a>
                   )}
                   {cli?.telefone && restantes > 0 && (
-                    <a href={waLink(cli.telefone, msgSobra)} target="_blank" rel="noreferrer"
+                    <a href={waLink(cli.telefone, msgSobra)}
                        className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                       ⏰ Avisar sobra
                     </a>
                   )}
                   {cli?.telefone && pc.status_pagamento !== "pago" && (
-                    <a href={waLink(cli.telefone, msgCobranca)} target="_blank" rel="noreferrer"
+                    <a href={waLink(cli.telefone, msgCobranca)}
                        className="text-xs bg-destructive text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                       💳 Cobrar pagamento
                     </a>

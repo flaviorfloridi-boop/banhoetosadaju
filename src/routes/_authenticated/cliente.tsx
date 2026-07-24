@@ -564,7 +564,7 @@ function PrecosTab({ precos }: { precos: Preco[] }) {
             {isAssinatura && (
               <a
                 href={waLink(null, "Olá! Quero assinar um pacote de banhos 🐾 (mensal ou quinzenal). Pode me ajudar?")}
-                target="_blank" rel="noreferrer"
+               
                 className="mt-3 inline-block text-xs bg-primary-foreground text-brand px-4 py-2 rounded-full font-bold hover:opacity-90"
               >
                 Quero assinar pelo WhatsApp
