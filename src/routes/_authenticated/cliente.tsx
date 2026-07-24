@@ -7,6 +7,21 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { waLink } from "@/lib/whatsapp";
 
+function openExternal(url: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch {
+    window.location.href = url;
+  }
+}
+
 export const Route = createFileRoute("/_authenticated/cliente")({
   head: () => ({
     meta: [
