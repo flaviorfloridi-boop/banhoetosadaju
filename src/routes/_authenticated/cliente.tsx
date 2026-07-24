@@ -93,7 +93,7 @@ export default function ClientePortal() {
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
-        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} />}
+        {tab === "agendar" && <AgendarTab pets={pets} ags={ags} precos={precos} limiteDia={limiteDia} pacote={pacote} />}
         {tab === "taxi" && <TaxiTab pets={pets} taxis={taxis} ags={ags} onChange={loadAll} userId={user?.id} />}
         {tab === "precos" && <PrecosTab precos={precos} />}
         {tab === "fotos" && <FotosTab photos={photos} pets={pets} />}
@@ -227,13 +227,15 @@ function PetsTab({ pets, onChange }: { pets: Pet[]; onChange: () => void }) {
   );
 }
 
-function AgendarTab({ pets, ags, precos, limiteDia }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number }) {
+function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags: Agendamento[]; precos: Preco[]; limiteDia: number; pacote: Pacote | null }) {
   const [petId, setPetId] = useState("");
   const [servico, setServico] = useState("banho");
   const [data, setData] = useState("");
   const [horario, setHorario] = useState("");
   const [obs, setObs] = useState("");
   const [ocupacao, setOcupacao] = useState<number | null>(null);
+  const restantesPacote = pacote ? Math.max(pacote.total_banhos - pacote.banhos_usados, 0) : 0;
+  const [usarPacote, setUsarPacote] = useState(restantesPacote > 0);
 
   useEffect(() => {
     setOcupacao(null);
@@ -253,12 +255,14 @@ function AgendarTab({ pets, ags, precos, limiteDia }: { pets: Pet[]; ags: Agenda
     if (cheio) { toast.error(`Dia lotado (${ocupacao}/${limiteDia}). Escolha outra data.`); return; }
     const pet = pets.find((p) => p.id === petId);
     const dataFmt = new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
+    const usaPacoteNesse = usarPacote && restantesPacote > 0;
     const msg =
       `Olá! Gostaria de agendar um horário 🐾\n\n` +
       `• Pet: ${pet?.nome ?? ""}\n` +
       `• Serviço: ${servico.replace(/_/g, " ")}\n` +
       `• Data: ${dataFmt}\n` +
       `• Horário: ${horario}\n` +
+      (usaPacoteNesse ? `• Quero usar 1 banho do meu pacote mensal (tenho ${restantesPacote} disponível)\n` : "") +
       (obs ? `• Observações: ${obs}\n` : "") +
       `\nPode confirmar pra mim? Obrigado!`;
     window.open(waLink(null, msg), "_blank");
@@ -269,6 +273,17 @@ function AgendarTab({ pets, ags, precos, limiteDia }: { pets: Pet[]; ags: Agenda
     <div className="grid md:grid-cols-2 gap-6">
       <form onSubmit={submit} className="bg-card border border-border rounded-2xl p-6 space-y-3">
         <h3 className="font-serif text-xl mb-2">Novo agendamento</h3>
+        {pacote && restantesPacote > 0 && (
+          <label className="flex items-start gap-2 bg-brand/5 border border-brand/20 rounded-lg px-3 py-2 text-sm cursor-pointer">
+            <input type="checkbox" checked={usarPacote} onChange={(e) => setUsarPacote(e.target.checked)} className="mt-0.5" />
+            <span>Usar 1 banho do meu pacote mensal <span className="font-bold">({restantesPacote} disponível{restantesPacote > 1 ? "eis" : ""})</span></span>
+          </label>
+        )}
+        {pacote && restantesPacote === 0 && (
+          <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+            Seu pacote mensal já foi todo usado — este agendamento será avulso.
+          </p>
+        )}
         <select required value={petId} onChange={(e) => setPetId(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-border bg-surface">
           <option value="">Escolha o pet</option>
           {pets.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
@@ -426,6 +441,15 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const GRUPO_LABELS: Record<string, string> = {
+  servico: "Serviços",
+  banho: "Banho",
+  tosa: "Tosa",
+  pacote: "Combos",
+  taxi: "Taxi Dog",
+  assinatura: "Pacote mensal",
+};
+
 function PrecosTab({ precos }: { precos: Preco[] }) {
   if (!precos.length) {
     return (
@@ -440,22 +464,39 @@ function PrecosTab({ precos }: { precos: Preco[] }) {
       <p className="text-sm text-ink/60">
         Os pagamentos são combinados direto pelo WhatsApp com a equipe. Confira abaixo os valores dos nossos serviços e pacotes.
       </p>
-      {grupos.map((g) => (
-        <div key={g} className="bg-card border border-border rounded-2xl p-5">
-          <h3 className="font-serif text-xl mb-3 capitalize">{g.replace(/_/g, " ")}</h3>
-          <ul className="divide-y divide-border">
-            {precos.filter((p) => p.categoria === g).map((p) => (
-              <li key={p.chave} className="py-3 flex justify-between items-start gap-4">
-                <div>
-                  <p className="font-medium">{p.nome}</p>
-                  {p.descricao && <p className="text-xs text-ink/50 mt-0.5">{p.descricao}</p>}
-                </div>
-                <span className="font-mono font-bold text-brand whitespace-nowrap">R$ {(p.valor_cents / 100).toFixed(2)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      {grupos.map((g) => {
+        const isAssinatura = g === "assinatura";
+        return (
+          <div key={g} className={"rounded-2xl p-5 " + (isAssinatura ? "bg-brand text-primary-foreground border border-brand" : "bg-card border border-border")}>
+            <h3 className="font-serif text-xl mb-1">{GRUPO_LABELS[g] ?? g.replace(/_/g, " ")}</h3>
+            {isAssinatura && (
+              <p className={"text-xs mb-3 " + "text-primary-foreground/80"}>
+                🎁 Assine e economize: um banho por semana garantido, sem precisar agendar avulso toda vez.
+              </p>
+            )}
+            <ul className={"divide-y " + (isAssinatura ? "divide-primary-foreground/20" : "divide-border")}>
+              {precos.filter((p) => p.categoria === g).map((p) => (
+                <li key={p.chave} className="py-3 flex justify-between items-start gap-4">
+                  <div>
+                    <p className="font-medium">{p.nome}</p>
+                    {p.descricao && <p className={"text-xs mt-0.5 " + (isAssinatura ? "text-primary-foreground/70" : "text-ink/50")}>{p.descricao}</p>}
+                  </div>
+                  <span className={"font-mono font-bold whitespace-nowrap " + (isAssinatura ? "text-primary-foreground" : "text-brand")}>R$ {(p.valor_cents / 100).toFixed(2)}</span>
+                </li>
+              ))}
+            </ul>
+            {isAssinatura && (
+              <a
+                href={waLink(null, "Olá! Quero assinar o pacote mensal de 4 banhos 🐾. Pode me ajudar?")}
+                target="_blank" rel="noreferrer"
+                className="mt-3 inline-block text-xs bg-primary-foreground text-brand px-4 py-2 rounded-full font-bold hover:opacity-90"
+              >
+                Quero assinar pelo WhatsApp
+              </a>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

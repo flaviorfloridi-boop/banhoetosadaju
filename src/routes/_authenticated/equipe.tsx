@@ -209,6 +209,13 @@ function EquipePortal() {
                         📱 WhatsApp
                       </a>
                     )}
+                    {cli?.telefone && (
+                      <a href={waLink(cli.telefone, buildMessage(templates, "agendamento:lembrete", agendamentoVars(pet?.nome ?? "seu pet", a.servico, a.data, a.horario)))}
+                         target="_blank" rel="noreferrer"
+                         className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90">
+                        🔔 Lembrete
+                      </a>
+                    )}
                   </div>
                 </Card>
               );
@@ -536,7 +543,8 @@ function PacotesTab({
           {pacotes.map((pc) => {
             const cli = profs[pc.cliente_id] ?? clientes.find((c) => c.id === pc.cliente_id);
             const restantes = Math.max(pc.total_banhos - pc.banhos_usados, 0);
-            const msg = buildMessage(templates, "pacote:aviso_saldo", { pacote: "Pacote mensal — 4 banhos", pet: cli?.nome ?? "cliente", saldo: restantes });
+            const msgSaldo = buildMessage(templates, "pacote:aviso_saldo", { pacote: "Pacote mensal — 4 banhos", pet: cli?.nome ?? "cliente", saldo: restantes });
+            const msgSobra = buildMessage(templates, "pacote:sobra_fim_mes", { saldo: restantes });
             return (
               <Card key={pc.id}>
                 <div className="flex-1">
@@ -546,12 +554,20 @@ function PacotesTab({
                     <div className="h-full bg-brand rounded-full" style={{ width: `${Math.min((pc.banhos_usados / pc.total_banhos) * 100, 100)}%` }} />
                   </div>
                 </div>
-                {cli?.telefone && (
-                  <a href={waLink(cli.telefone, msg)} target="_blank" rel="noreferrer"
-                     className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
-                    📱 Avisar saldo
-                  </a>
-                )}
+                <div className="flex flex-col gap-2 items-end">
+                  {cli?.telefone && (
+                    <a href={waLink(cli.telefone, msgSaldo)} target="_blank" rel="noreferrer"
+                       className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                      📱 Avisar saldo
+                    </a>
+                  )}
+                  {cli?.telefone && restantes > 0 && (
+                    <a href={waLink(cli.telefone, msgSobra)} target="_blank" rel="noreferrer"
+                       className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                      ⏰ Avisar sobra (fim do mês)
+                    </a>
+                  )}
+                </div>
               </Card>
             );
           })}

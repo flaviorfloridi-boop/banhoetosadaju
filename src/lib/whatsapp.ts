@@ -22,6 +22,7 @@ export type TemplateMap = Record<string, string>;
 /** Fallbacks caso a tabela mensagem_templates ainda não tenha uma chave. */
 export const DEFAULT_TEMPLATES: TemplateMap = {
   "agendamento:confirmado": "Olá! 🐾 O agendamento do *{pet}* ({servico}) foi confirmado para *{data} às {horario}*. — Banho & Tosa da JU",
+  "agendamento:lembrete": "Oi! 🔔 Passando pra lembrar: o *{pet}* tem banho/tosa marcado para *{data} às {horario}*. Te esperamos! — Banho & Tosa da JU",
   "agendamento:em_andamento": "Oi! 🛁 O *{pet}* já começou o {servico}. — Banho & Tosa da JU",
   "agendamento:concluido": "Prontinho! ✨ O *{pet}* já está pronto para buscar. — Banho & Tosa da JU",
   "agendamento:cancelado": "Olá! Precisamos cancelar o agendamento do *{pet}* de {data}. — Banho & Tosa da JU",
@@ -30,6 +31,7 @@ export const DEFAULT_TEMPLATES: TemplateMap = {
   "taxi:concluido": "Entregue com segurança! ✅ *{pet}* já está em casa. — Banho & Tosa da JU",
   "taxi:cancelado": "Precisamos cancelar o Taxi Dog do *{pet}*. Nos chame para reagendar. — Banho & Tosa da JU",
   "pacote:aviso_saldo": "Oi! 🐾 Pacote *{pacote}* do *{pet}*: *{saldo}* banho(s) disponível(is). — Banho & Tosa da JU",
+  "pacote:sobra_fim_mes": "Oi! 🐾 O mês está acabando e ainda restam *{saldo} banho(s)* no seu pacote mensal. Bora agendar antes que vença? — Banho & Tosa da JU",
 };
 
 export function agendamentoTemplateKey(status: string): string { return `agendamento:${status}`; }
