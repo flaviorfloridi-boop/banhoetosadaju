@@ -306,7 +306,7 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
       (usaPacoteNesse ? `• Quero usar 1 banho do meu pacote ${pacote?.periodicidade === "quinzenal" ? "quinzenal" : "mensal"} (tenho ${restantesPacote} disponível)\n` : "") +
       (obs ? `• Observações: ${obs}\n` : "") +
       `\nPode confirmar pra mim? Obrigado!`;
-    window.open(waLink(null, msg), "_blank");
+    openExternal(waLink(null, msg));
     toast.success("Abrindo WhatsApp para confirmar seu horário…");
   }
 
