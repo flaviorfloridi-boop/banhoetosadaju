@@ -45,7 +45,7 @@ function mesReferenciaAtual(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento";
+type Tab = "agenda" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -164,6 +164,7 @@ function EquipePortal() {
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
           <TabBtn active={tab === "agenda"} onClick={() => setTab("agenda")}>Banho & Tosa ({ags.length}/{limiteDia})</TabBtn>
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog ({tds.length})</TabBtn>
+          <TabBtn active={tab === "avisos"} onClick={() => setTab("avisos")}>🔔 Central de Avisos</TabBtn>
           <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>Fechamento do dia</TabBtn>
           <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>Pacotes</TabBtn>
           <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
@@ -270,6 +271,7 @@ function EquipePortal() {
           </div>
         )}
 
+        {tab === "avisos" && <AvisosTab pacotes={pacotes} profs={profs} clientes={clientes} templates={templates} />}
         {tab === "fechamento" && <FechamentoTab ags={ags} pets={pets} profs={profs} date={date} />}
         {tab === "pacotes" && (
           <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} templates={templates} />
@@ -415,6 +417,153 @@ function PacoteSelect({ value, pacotes, onChange }: { value: string | null; paco
         </option>
       ))}
     </select>
+  );
+}
+
+function diasRestantesNoMes(): number {
+  const now = new Date();
+  const ultimoDia = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  return ultimoDia - now.getDate();
+}
+function amanha(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+interface AgSimples { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; cliente_id: string; }
+
+function AvisosTab({
+  pacotes, profs, clientes, templates,
+}: {
+  pacotes: PacoteRow[];
+  profs: Record<string, Prof>;
+  clientes: Prof[];
+  templates: TemplateMap;
+}) {
+  const [agsAmanha, setAgsAmanha] = useState<AgSimples[]>([]);
+  const [petsAmanha, setPetsAmanha] = useState<Record<string, { nome: string }>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const dataAlvo = amanha();
+      const { data } = await supabase.from("agendamentos").select("id,data,horario,servico,status,pet_id,cliente_id")
+        .eq("data", dataAlvo).in("status", ["confirmado", "solicitado"]).order("horario");
+      const rows = (data as AgSimples[]) ?? [];
+      setAgsAmanha(rows);
+      const petIds = [...new Set(rows.map((r) => r.pet_id))];
+      if (petIds.length) {
+        const { data: p } = await supabase.from("pets").select("id,nome").in("id", petIds);
+        const map: Record<string, { nome: string }> = {};
+        (p as { id: string; nome: string }[] | null)?.forEach((x) => (map[x.id] = { nome: x.nome }));
+        setPetsAmanha(map);
+      } else setPetsAmanha({});
+      setLoading(false);
+    })();
+  }, []);
+
+  function nomeCliente(id: string) {
+    return profs[id]?.nome ?? clientes.find((c) => c.id === id)?.nome ?? "Cliente";
+  }
+  function telefoneCliente(id: string) {
+    return profs[id]?.telefone ?? clientes.find((c) => c.id === id)?.telefone ?? null;
+  }
+
+  const diasFimMes = diasRestantesNoMes();
+  const ultimoBanho = pacotes.filter((pc) => pc.ativo && pc.total_banhos - pc.banhos_usados === 1);
+  const sobrandoFimMes = pacotes.filter((pc) => pc.ativo && pc.total_banhos - pc.banhos_usados > 0 && diasFimMes <= 5);
+
+  return (
+    <div className="space-y-8">
+      <p className="text-sm text-ink/60">
+        Calculado automaticamente todo dia: quem tem banho amanhã, quem está no último banho do pacote, e quem tem
+        banhos sobrando perto do fim do mês. Clique para abrir a mensagem já pronta no WhatsApp.
+      </p>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">📅 Agendamentos de amanhã ({agsAmanha.length})</h3>
+        {loading && <p className="text-sm text-ink/50">Carregando…</p>}
+        {!loading && agsAmanha.length === 0 && <EmptyState label="Nenhum agendamento confirmado para amanhã." />}
+        <div className="space-y-2">
+          {agsAmanha.map((a) => {
+            const tel = telefoneCliente(a.cliente_id);
+            const petNome = petsAmanha[a.pet_id]?.nome ?? "seu pet";
+            const msg = buildMessage(templates, "agendamento:lembrete", agendamentoVars(petNome, a.servico, a.data, a.horario));
+            return (
+              <Card key={a.id}>
+                <div>
+                  <p className="font-bold">{petNome} — {a.servico.replace(/_/g, " ")}</p>
+                  <p className="text-xs text-ink/50">{a.horario.slice(0, 5)} • {nomeCliente(a.cliente_id)}</p>
+                </div>
+                {tel ? (
+                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                     className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                    🔔 Enviar lembrete
+                  </a>
+                ) : <span className="text-[11px] text-ink/40">Sem telefone cadastrado</span>}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">🐾 Clientes no último banho do pacote ({ultimoBanho.length})</h3>
+        {ultimoBanho.length === 0 && <EmptyState label="Ninguém no último banho do pacote agora." />}
+        <div className="space-y-2">
+          {ultimoBanho.map((pc) => {
+            const tel = telefoneCliente(pc.cliente_id);
+            const msg = buildMessage(templates, "pacote:aviso_saldo", { pacote: "Pacote mensal — 4 banhos", pet: nomeCliente(pc.cliente_id), saldo: 1 });
+            return (
+              <Card key={pc.id}>
+                <div>
+                  <p className="font-bold">{nomeCliente(pc.cliente_id)}</p>
+                  <p className="text-xs text-ink/50">{pc.banhos_usados}/{pc.total_banhos} usados — resta só 1</p>
+                </div>
+                {tel ? (
+                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                     className="text-xs bg-[#25D366] text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                    📱 Avisar último banho
+                  </a>
+                ) : <span className="text-[11px] text-ink/40">Sem telefone cadastrado</span>}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">
+          ⏰ Sobra de banhos perto do fim do mês ({sobrandoFimMes.length})
+          <span className="ml-2 text-xs font-normal text-ink/40">faltam {diasFimMes} dia(s) para o mês acabar</span>
+        </h3>
+        {diasFimMes > 5 && <p className="text-xs text-ink/40 mb-2">Essa lista fica mais relevante nos últimos 5 dias do mês.</p>}
+        {sobrandoFimMes.length === 0 && <EmptyState label="Nenhum pacote com sobra relevante agora." />}
+        <div className="space-y-2">
+          {sobrandoFimMes.map((pc) => {
+            const tel = telefoneCliente(pc.cliente_id);
+            const restantes = pc.total_banhos - pc.banhos_usados;
+            const msg = buildMessage(templates, "pacote:sobra_fim_mes", { saldo: restantes });
+            return (
+              <Card key={pc.id}>
+                <div>
+                  <p className="font-bold">{nomeCliente(pc.cliente_id)}</p>
+                  <p className="text-xs text-ink/50">{restantes} banho(s) sobrando este mês</p>
+                </div>
+                {tel ? (
+                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                     className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                    ⏰ Avisar sobra
+                  </a>
+                ) : <span className="text-[11px] text-ink/40">Sem telefone cadastrado</span>}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
