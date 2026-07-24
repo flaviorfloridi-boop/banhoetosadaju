@@ -9,17 +9,9 @@ import { waLink } from "@/lib/whatsapp";
 
 function openExternal(url: string) {
   if (typeof window === "undefined") return;
-  try {
-    const a = document.createElement("a");
-    a.href = url;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-  } catch {
-    window.location.href = url;
-  }
+  // Navega na mesma aba para evitar bloqueio de COOP (NS_ERROR_DOM_COOP_FAILED no Firefox)
+  // ao abrir wa.me em um novo contexto de navegação.
+  window.location.assign(url);
 }
 
 export const Route = createFileRoute("/_authenticated/cliente")({
@@ -572,7 +564,7 @@ function PrecosTab({ precos }: { precos: Preco[] }) {
             {isAssinatura && (
               <a
                 href={waLink(null, "Olá! Quero assinar um pacote de banhos 🐾 (mensal ou quinzenal). Pode me ajudar?")}
-                target="_blank" rel="noreferrer"
+               
                 className="mt-3 inline-block text-xs bg-primary-foreground text-brand px-4 py-2 rounded-full font-bold hover:opacity-90"
               >
                 Quero assinar pelo WhatsApp
