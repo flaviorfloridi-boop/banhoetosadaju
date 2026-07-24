@@ -145,12 +145,102 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
   h1, h2, h3, .font-serif {
     font-family: var(--font-serif);
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+  }
+  h4, h5, h6 {
+    letter-spacing: -0.01em;
+  }
+  p {
+    line-height: 1.65;
+  }
+  a, button {
+    transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease,
+      box-shadow 220ms ease, transform 220ms ease, opacity 180ms ease;
+  }
+  button:focus-visible, a:focus-visible, [role="button"]:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--brand) 55%, transparent);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--brand) 25%, transparent);
+    color: var(--ink);
   }
 }
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Premium micro-interactions applied globally, opt-out with .no-polish */
+@layer components {
+  .bg-card:not(.no-polish),
+  [class*="rounded-2xl"].border:not(.no-polish),
+  [class*="rounded-3xl"].border:not(.no-polish) {
+    transition: box-shadow 260ms ease, transform 260ms ease, border-color 220ms ease;
+  }
+}
+
+@utility card-hover {
+  transition: box-shadow 260ms ease, transform 260ms ease;
+  &:hover {
+    box-shadow: 0 12px 30px -18px color-mix(in oklab, var(--brand) 45%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+@utility btn-lift {
+  transition: box-shadow 220ms ease, transform 220ms ease, opacity 180ms ease;
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -14px color-mix(in oklab, var(--brand) 55%, transparent);
+  }
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+/* Softer default shadows on branded surfaces */
+.shadow-xl {
+  box-shadow: 0 20px 45px -25px color-mix(in oklab, var(--brand) 40%, transparent),
+    0 6px 18px -10px color-mix(in oklab, var(--ink) 15%, transparent);
+}
+.shadow-md {
+  box-shadow: 0 8px 20px -14px color-mix(in oklab, var(--brand) 35%, transparent);
+}
+.shadow-sm {
+  box-shadow: 0 2px 8px -4px color-mix(in oklab, var(--ink) 10%, transparent);
+}
+
+/* Loading skeleton */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--brand-light) 60%, transparent) 0%,
+    color-mix(in oklab, var(--brand) 8%, var(--brand-light)) 50%,
+    color-mix(in oklab, var(--brand-light) 60%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
+
+/* Subtle entrance for tab panels & cards */
+@keyframes soft-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-soft-in {
+  animation: soft-in 320ms ease-out both;
 }
