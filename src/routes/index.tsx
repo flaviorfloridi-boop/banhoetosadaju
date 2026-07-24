@@ -177,8 +177,8 @@ function Home() {
 
 function ServiceCard({ n, title, desc, img, highlight }: { n: string; title: string; desc: string; img: string; highlight?: boolean }) {
   return (
-    <div className={highlight ? "bg-brand text-primary-foreground p-8 rounded-[32px]" : "bg-surface p-8 rounded-[32px] border border-brand/5"}>
-      <div className={"size-12 rounded-2xl mb-6 grid place-items-center font-bold " + (highlight ? "bg-white/10" : "bg-brand/10 text-brand")}>
+    <div className={(highlight ? "bg-brand text-primary-foreground" : "bg-surface border border-brand/5") + " p-8 rounded-[32px] card-hover"}>
+      <div className={"size-12 rounded-2xl mb-6 grid place-items-center font-bold " + (highlight ? "bg-white/15" : "bg-brand/10 text-brand")}>
         {n}
       </div>
       <h3 className="font-serif text-2xl mb-3">{title}</h3>

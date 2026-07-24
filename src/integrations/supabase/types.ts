@@ -583,7 +583,10 @@ export type Database = {
         Returns: {
           banhos_usados: number
           id: string
-          mes_referencia: string
+          periodicidade: string
+          periodo_fim: string
+          periodo_inicio: string
+          status_pagamento: string
           total_banhos: number
         }[]
       }
