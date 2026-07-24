@@ -9,9 +9,16 @@ import { waLink } from "@/lib/whatsapp";
 
 function openExternal(url: string) {
   if (typeof window === "undefined") return;
-  // Navega na mesma aba para evitar bloqueio de COOP (NS_ERROR_DOM_COOP_FAILED no Firefox)
-  // ao abrir wa.me em um novo contexto de navegação.
-  window.location.assign(url);
+  // target="_top" navega o documento de nível mais alto: funciona normalmente em uma aba comum
+  // e também "escapa" de qualquer iframe (ex: preview do editor Lovable), sem cair nas
+  // restrições de COOP que afetam abrir uma NOVA aba/janela (window.open / target="_blank").
+  const a = document.createElement("a");
+  a.href = url;
+  a.target = "_top";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 export const Route = createFileRoute("/_authenticated/cliente")({
