@@ -23,9 +23,9 @@ export function SiteHeader() {
           <img
             src={logoAsset.url}
             alt="Banho & Tosa da JU"
-            width={140}
-            height={140}
-            className="h-14 md:h-16 w-auto object-contain"
+            width={160}
+            height={160}
+            className="h-20 md:h-24 w-auto object-contain rounded-full bg-white p-1 shadow-md ring-1 ring-brand/10"
           />
           <span className="sr-only">Banho &amp; Tosa da JU</span>
         </Link>
