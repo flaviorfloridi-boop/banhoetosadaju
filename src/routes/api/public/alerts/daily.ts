@@ -16,6 +16,9 @@ interface PacoteRow {
   total_banhos: number;
   banhos_usados: number;
   ativo: boolean;
+  periodicidade: string;
+  periodo_fim: string;
+  status_pagamento: string;
 }
 interface ProfileRow {
   id: string;
@@ -32,14 +35,14 @@ function amanha(): string {
   d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
 }
-function mesReferenciaAtual(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
 }
-function diasRestantesNoMes(): number {
-  const now = new Date();
-  const ultimoDia = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  return ultimoDia - now.getDate();
+function diasAteFimCiclo(periodoFim: string): number {
+  const fim = new Date(periodoFim + 'T00:00:00');
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return Math.round((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
 }
 function cleanPhone(numero: string): string {
   const clean = numero.replace(/\D/g, '');
@@ -50,7 +53,7 @@ interface Recipient {
   telefone: string | null;
   nome: string;
   mensagem: string;
-  categoria: 'lembrete_agendamento' | 'ultimo_banho' | 'sobra_fim_mes';
+  categoria: 'lembrete_agendamento' | 'ultimo_banho' | 'sobra_fim_ciclo' | 'cobranca_pacote';
 }
 
 async function handleDaily() {
@@ -65,9 +68,9 @@ async function handleDaily() {
       .in('status', ['confirmado', 'solicitado']),
     supabaseAdmin
       .from('pacotes_cliente')
-      .select('id,cliente_id,total_banhos,banhos_usados,ativo')
-      .eq('mes_referencia', mesReferenciaAtual())
-      .eq('ativo', true),
+      .select('id,cliente_id,total_banhos,banhos_usados,ativo,periodicidade,periodo_fim,status_pagamento')
+      .eq('ativo', true)
+      .gte('periodo_fim', today()),
   ]);
 
   const templates: Record<string, string> = { ...DEFAULT_TEMPLATES };
@@ -114,23 +117,31 @@ async function handleDaily() {
     });
   }
 
-  const diasFimMes = diasRestantesNoMes();
   for (const pc of pacotesRows) {
     const restantes = pc.total_banhos - pc.banhos_usados;
     const prof = profMap[pc.cliente_id];
+    const label = pc.periodicidade === 'quinzenal' ? 'quinzenal' : 'mensal';
     if (restantes === 1) {
       recipients.push({
         telefone: prof?.telefone ?? null,
         nome: prof?.nome ?? 'cliente',
         categoria: 'ultimo_banho',
-        mensagem: buildMsg('pacote:aviso_saldo', { pacote: 'Pacote mensal — 4 banhos', pet: prof?.nome ?? 'cliente', saldo: 1 }),
+        mensagem: buildMsg('pacote:aviso_saldo', { pacote: `Pacote ${label}`, pet: prof?.nome ?? 'cliente', saldo: 1 }),
       });
-    } else if (restantes > 0 && diasFimMes <= 5) {
+    } else if (restantes > 0 && diasAteFimCiclo(pc.periodo_fim) <= 3) {
       recipients.push({
         telefone: prof?.telefone ?? null,
         nome: prof?.nome ?? 'cliente',
-        categoria: 'sobra_fim_mes',
+        categoria: 'sobra_fim_ciclo',
         mensagem: buildMsg('pacote:sobra_fim_mes', { saldo: restantes }),
+      });
+    }
+    if (pc.status_pagamento !== 'pago') {
+      recipients.push({
+        telefone: prof?.telefone ?? null,
+        nome: prof?.nome ?? 'cliente',
+        categoria: 'cobranca_pacote',
+        mensagem: buildMsg('pacote:cobranca', { periodicidade: label }),
       });
     }
   }

@@ -17,6 +17,7 @@ export type Database = {
       agendamentos: {
         Row: {
           cliente_id: string
+          confirmado_dia_anterior: boolean
           created_at: string
           data: string
           horario: string
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           cliente_id: string
+          confirmado_dia_anterior?: boolean
           created_at?: string
           data: string
           horario: string
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           cliente_id?: string
+          confirmado_dia_anterior?: boolean
           created_at?: string
           data?: string
           horario?: string
@@ -163,6 +166,10 @@ export type Database = {
           created_at: string
           id: string
           mes_referencia: string
+          periodicidade: string
+          periodo_fim: string
+          periodo_inicio: string
+          status_pagamento: string
           total_banhos: number
           updated_at: string
         }
@@ -173,6 +180,10 @@ export type Database = {
           created_at?: string
           id?: string
           mes_referencia: string
+          periodicidade?: string
+          periodo_fim: string
+          periodo_inicio: string
+          status_pagamento?: string
           total_banhos?: number
           updated_at?: string
         }
@@ -183,6 +194,10 @@ export type Database = {
           created_at?: string
           id?: string
           mes_referencia?: string
+          periodicidade?: string
+          periodo_fim?: string
+          periodo_inicio?: string
+          status_pagamento?: string
           total_banhos?: number
           updated_at?: string
         }
@@ -474,6 +489,7 @@ export type Database = {
           horario: string
           id: string
           observacoes: string | null
+          ordem_rota: number
           pet_id: string
           ponto_referencia: string | null
           status: Database["public"]["Enums"]["taxi_dog_status"]
@@ -491,6 +507,7 @@ export type Database = {
           horario: string
           id?: string
           observacoes?: string | null
+          ordem_rota?: number
           pet_id: string
           ponto_referencia?: string | null
           status?: Database["public"]["Enums"]["taxi_dog_status"]
@@ -508,6 +525,7 @@ export type Database = {
           horario?: string
           id?: string
           observacoes?: string | null
+          ordem_rota?: number
           pet_id?: string
           ponto_referencia?: string | null
           status?: Database["public"]["Enums"]["taxi_dog_status"]

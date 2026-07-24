@@ -23,11 +23,10 @@ interface Agendamento { id: string; data: string; horario: string; servico: stri
 interface TaxiDog { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; pet_id: string; }
 interface Preco { chave: string; nome: string; categoria: string; valor_cents: number; descricao: string | null; }
 interface PetPhoto { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
-interface Pacote { id: string; total_banhos: number; banhos_usados: number; mes_referencia: string; ativo: boolean; }
+interface Pacote { id: string; total_banhos: number; banhos_usados: number; mes_referencia: string; ativo: boolean; periodicidade: string; periodo_inicio: string; periodo_fim: string; status_pagamento: string; }
 
-function mesReferenciaAtual(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export default function ClientePortal() {
@@ -54,8 +53,8 @@ export default function ClientePortal() {
       supabase.from("service_prices").select("chave,nome,categoria,valor_cents,descricao").eq("ativo", true).order("ordem"),
       supabase.from("pet_photos").select("id,pet_id,storage_path,legenda,created_at").order("created_at", { ascending: false }),
       supabase.from("app_settings").select("valor").eq("chave", "limite_banhos_dia").maybeSingle(),
-      supabase.from("pacotes_cliente").select("id,total_banhos,banhos_usados,mes_referencia,ativo")
-        .eq("mes_referencia", mesReferenciaAtual()).eq("ativo", true).maybeSingle(),
+      supabase.from("pacotes_cliente").select("id,total_banhos,banhos_usados,mes_referencia,ativo,periodicidade,periodo_inicio,periodo_fim,status_pagamento")
+        .eq("ativo", true).gte("periodo_fim", today()).order("periodo_fim", { ascending: false }).limit(1).maybeSingle(),
     ]);
     setPets((p.data as Pet[]) ?? []);
     setAgs((a.data as Agendamento[]) ?? []);
@@ -107,14 +106,29 @@ function PacoteCard({ pacote }: { pacote: Pacote }) {
   const esgotado = restantes === 0;
   const ultimoBanho = restantes === 1;
   const pct = Math.min((pacote.banhos_usados / pacote.total_banhos) * 100, 100);
+  const label = pacote.periodicidade === "quinzenal" ? "Pacote quinzenal" : "Pacote mensal";
+  const periodoFmt =
+    new Date(pacote.periodo_inicio + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) +
+    " – " +
+    new Date(pacote.periodo_fim + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 
   return (
     <div className="bg-card border border-border rounded-2xl p-5 mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-serif text-lg">Meu pacote mensal</h3>
+      <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+        <h3 className="font-serif text-lg">{label}</h3>
         <span className="text-sm font-bold text-brand">
           {pacote.banhos_usados} de {pacote.total_banhos} banhos usados
         </span>
+      </div>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <p className="text-xs text-ink/50">Ciclo: {periodoFmt}</p>
+        {pacote.status_pagamento === "pago" ? (
+          <span className="text-[11px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">Pagamento em dia</span>
+        ) : pacote.status_pagamento === "atrasado" ? (
+          <span className="text-[11px] font-bold text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">Pagamento atrasado</span>
+        ) : (
+          <span className="text-[11px] font-bold text-accent bg-accent/10 px-2 py-0.5 rounded-full">Pagamento pendente</span>
+        )}
       </div>
       <div className="w-full h-3 rounded-full bg-surface border border-border overflow-hidden">
         <div
@@ -124,16 +138,16 @@ function PacoteCard({ pacote }: { pacote: Pacote }) {
       </div>
       {ultimoBanho && (
         <p className="mt-3 text-sm font-bold text-accent bg-accent/10 rounded-lg px-3 py-2">
-          ⚠️ Este é o seu último banho disponível no pacote deste mês! Os próximos serão avulsos, a menos que renove.
+          ⚠️ Este é o seu último banho disponível neste ciclo! Os próximos serão avulsos, a menos que renove.
         </p>
       )}
       {esgotado && (
         <p className="mt-3 text-sm font-bold text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-          🔔 Seu pacote mensal já foi todo utilizado. Os próximos banhos serão cobrados avulsos — fale com a gente para renovar.
+          🔔 Seu pacote já foi todo utilizado. Os próximos banhos serão cobrados avulsos — fale com a gente para renovar.
         </p>
       )}
       {!ultimoBanho && !esgotado && (
-        <p className="mt-2 text-xs text-ink/50">Restam {restantes} banho(s) disponível(is) este mês.</p>
+        <p className="mt-2 text-xs text-ink/50">Restam {restantes} banho(s) disponível(is) neste ciclo.</p>
       )}
     </div>
   );
@@ -273,7 +287,7 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
       `• Serviço: ${servico.replace(/_/g, " ")}\n` +
       `• Data: ${dataFmt}\n` +
       `• Horário: ${horario}\n` +
-      (usaPacoteNesse ? `• Quero usar 1 banho do meu pacote mensal (tenho ${restantesPacote} disponível)\n` : "") +
+      (usaPacoteNesse ? `• Quero usar 1 banho do meu pacote ${pacote?.periodicidade === "quinzenal" ? "quinzenal" : "mensal"} (tenho ${restantesPacote} disponível)\n` : "") +
       (obs ? `• Observações: ${obs}\n` : "") +
       `\nPode confirmar pra mim? Obrigado!`;
     window.open(waLink(null, msg), "_blank");
@@ -287,12 +301,12 @@ function AgendarTab({ pets, ags, precos, limiteDia, pacote }: { pets: Pet[]; ags
         {pacote && restantesPacote > 0 && (
           <label className="flex items-start gap-2 bg-brand/5 border border-brand/20 rounded-lg px-3 py-2 text-sm cursor-pointer">
             <input type="checkbox" checked={usarPacote} onChange={(e) => setUsarPacote(e.target.checked)} className="mt-0.5" />
-            <span>Usar 1 banho do meu pacote mensal <span className="font-bold">({restantesPacote} disponível{restantesPacote > 1 ? "eis" : ""})</span></span>
+            <span>Usar 1 banho do meu pacote {pacote.periodicidade === "quinzenal" ? "quinzenal" : "mensal"} <span className="font-bold">({restantesPacote} disponível{restantesPacote > 1 ? "eis" : ""})</span></span>
           </label>
         )}
         {pacote && restantesPacote === 0 && (
           <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-            Seu pacote mensal já foi todo usado — este agendamento será avulso.
+            Seu pacote já foi todo usado neste ciclo — este agendamento será avulso.
           </p>
         )}
         <select required value={petId} onChange={(e) => setPetId(e.target.value)} className="w-full px-4 py-2 rounded-lg border border-border bg-surface">
@@ -486,7 +500,7 @@ const GRUPO_LABELS: Record<string, string> = {
   tosa: "Tosa",
   pacote: "Combos",
   taxi: "Taxi Dog",
-  assinatura: "Pacote mensal",
+  assinatura: "Pacotes de assinatura",
 };
 
 function PrecosTab({ precos }: { precos: Preco[] }) {
@@ -510,7 +524,7 @@ function PrecosTab({ precos }: { precos: Preco[] }) {
             <h3 className="font-serif text-xl mb-1">{GRUPO_LABELS[g] ?? g.replace(/_/g, " ")}</h3>
             {isAssinatura && (
               <p className={"text-xs mb-3 " + "text-primary-foreground/80"}>
-                🎁 Assine e economize: um banho por semana garantido, sem precisar agendar avulso toda vez.
+                🎁 Assine e economize: banhos garantidos no seu ritmo (mensal ou quinzenal), sem precisar agendar avulso toda vez.
               </p>
             )}
             <ul className={"divide-y " + (isAssinatura ? "divide-primary-foreground/20" : "divide-border")}>
@@ -526,7 +540,7 @@ function PrecosTab({ precos }: { precos: Preco[] }) {
             </ul>
             {isAssinatura && (
               <a
-                href={waLink(null, "Olá! Quero assinar o pacote mensal de 4 banhos 🐾. Pode me ajudar?")}
+                href={waLink(null, "Olá! Quero assinar um pacote de banhos 🐾 (mensal ou quinzenal). Pode me ajudar?")}
                 target="_blank" rel="noreferrer"
                 className="mt-3 inline-block text-xs bg-primary-foreground text-brand px-4 py-2 rounded-full font-bold hover:opacity-90"
               >

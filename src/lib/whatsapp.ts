@@ -32,6 +32,7 @@ export const DEFAULT_TEMPLATES: TemplateMap = {
   "taxi:cancelado": "Precisamos cancelar o Taxi Dog do *{pet}*. Nos chame para reagendar. — Banho & Tosa da JU",
   "pacote:aviso_saldo": "Oi! 🐾 Pacote *{pacote}* do *{pet}*: *{saldo}* banho(s) disponível(is). — Banho & Tosa da JU",
   "pacote:sobra_fim_mes": "Oi! 🐾 O mês está acabando e ainda restam *{saldo} banho(s)* no seu pacote mensal. Bora agendar antes que vença? — Banho & Tosa da JU",
+  "pacote:cobranca": "Oi! 🐾 Seu pacote de banhos ({periodicidade}) está com o pagamento pendente. Pode acertar com a gente pra continuar aproveitando? — Banho & Tosa da JU",
 };
 
 export function agendamentoTemplateKey(status: string): string { return `agendamento:${status}`; }

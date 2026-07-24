@@ -29,14 +29,14 @@ export const Route = createFileRoute("/_authenticated/equipe")({
   component: EquipePortal,
 });
 
-interface Ag { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; cliente_id: string; observacoes: string | null; pacote_id: string | null; }
-interface Td { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; ponto_referencia: string | null; pet_id: string; cliente_id: string; observacoes: string | null; agendamento_id: string | null; }
+interface Ag { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; cliente_id: string; observacoes: string | null; pacote_id: string | null; confirmado_dia_anterior: boolean; }
+interface Td { id: string; data: string; horario: string; tipo: string; status: string; endereco_coleta: string; bairro: string; ponto_referencia: string | null; pet_id: string; cliente_id: string; observacoes: string | null; agendamento_id: string | null; ordem_rota: number; }
 interface Pet { id: string; nome: string; raca: string | null; porte: string | null; }
 interface Prof { id: string; nome: string | null; telefone: string | null; }
 interface Preco { chave: string; nome: string; categoria: string; descricao: string | null; valor_cents: number; ativo: boolean; ordem: number; }
 interface PetPhotoRow { id: string; pet_id: string; storage_path: string; legenda: string | null; created_at: string; }
 interface GalleryRow { id: string; storage_path: string; legenda: string | null; publicado: boolean; ordem: number; }
-interface PacoteRow { id: string; cliente_id: string; mes_referencia: string; total_banhos: number; banhos_usados: number; ativo: boolean; }
+interface PacoteRow { id: string; cliente_id: string; mes_referencia: string; total_banhos: number; banhos_usados: number; ativo: boolean; periodicidade: string; periodo_inicio: string; periodo_fim: string; status_pagamento: string; }
 interface Pagamento { id: string; agendamento_id: string | null; valor_cents: number; status: string; descricao: string; }
 
 function today() { return new Date().toISOString().slice(0, 10); }
@@ -84,14 +84,14 @@ function EquipePortal() {
   }, []);
 
   async function loadPacotes() {
-    const { data } = await supabase.from("pacotes_cliente").select("*").eq("mes_referencia", mesReferenciaAtual()).order("created_at", { ascending: false });
+    const { data } = await supabase.from("pacotes_cliente").select("*").gte("periodo_fim", today()).order("periodo_fim", { ascending: false });
     setPacotes((data as PacoteRow[]) ?? []);
   }
 
   async function load() {
     const [a, t] = await Promise.all([
       supabase.from("agendamentos").select("*").eq("data", date).order("horario"),
-      supabase.from("taxi_dog").select("*").eq("data", date).order("horario"),
+      supabase.from("taxi_dog").select("*").eq("data", date).order("ordem_rota").order("horario"),
     ]);
     const agsData = (a.data as Ag[]) ?? [];
     const tdsData = (t.data as Td[]) ?? [];
@@ -127,16 +127,45 @@ function EquipePortal() {
     toast.success(pacoteId ? "Vinculado ao pacote" : "Marcado como avulso");
     void load();
   }
-  async function criarPacote(clienteId: string) {
+  async function criarPacote(clienteId: string, periodicidade: "mensal" | "quinzenal", totalBanhos: number) {
+    const inicio = new Date();
+    const fim = new Date(inicio);
+    if (periodicidade === "quinzenal") fim.setDate(fim.getDate() + 15);
+    else fim.setMonth(fim.getMonth() + 1);
+    fim.setDate(fim.getDate() - 1);
     const { error } = await supabase.from("pacotes_cliente").insert({
       cliente_id: clienteId,
       mes_referencia: mesReferenciaAtual(),
-      total_banhos: 4,
+      periodicidade,
+      periodo_inicio: inicio.toISOString().slice(0, 10),
+      periodo_fim: fim.toISOString().slice(0, 10),
+      total_banhos: totalBanhos,
       banhos_usados: 0,
+      status_pagamento: "pendente",
     });
     if (error) return toast.error(error.message);
-    toast.success("Pacote criado para este mês");
+    toast.success("Pacote criado");
     void loadPacotes();
+  }
+  async function atualizarStatusPagamento(id: string, status: "pendente" | "pago" | "atrasado") {
+    const { error } = await supabase.from("pacotes_cliente").update({ status_pagamento: status }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Status de pagamento atualizado");
+    void loadPacotes();
+  }
+  async function toggleConfirmadoDiaAnterior(id: string, valorAtual: boolean) {
+    const { error } = await supabase.from("agendamentos").update({ confirmado_dia_anterior: !valorAtual }).eq("id", id);
+    if (error) return toast.error(error.message);
+    void load();
+  }
+  async function moverOrdemTaxi(id: string, delta: 1 | -1) {
+    const ordenados = [...tds].sort((a, b) => a.ordem_rota - b.ordem_rota || a.horario.localeCompare(b.horario));
+    const idx = ordenados.findIndex((t) => t.id === id);
+    const alvoIdx = idx + delta;
+    if (alvoIdx < 0 || alvoIdx >= ordenados.length) return;
+    [ordenados[idx], ordenados[alvoIdx]] = [ordenados[alvoIdx], ordenados[idx]];
+    await Promise.all(ordenados.map((t, i) => supabase.from("taxi_dog").update({ ordem_rota: i }).eq("id", t.id)));
+    void load();
   }
   async function updateTd(id: string, status: string) {
     const { error } = await supabase.from("taxi_dog").update({ status: status as "solicitado" | "confirmado" | "a_caminho" | "concluido" | "cancelado" }).eq("id", id);
@@ -179,6 +208,18 @@ function EquipePortal() {
             <div className={"rounded-xl p-3 text-sm " + (ags.length >= limiteDia ? "bg-destructive/10 text-destructive font-bold" : "bg-brand/5 text-brand")}>
               {ags.length}/{limiteDia} banhos agendados neste dia. {ags.length >= limiteDia && "Novos agendamentos serão bloqueados."}
             </div>
+            {ags.length > 0 && (() => {
+              const naoConfirmados = ags.filter((a) => !a.confirmado_dia_anterior && a.status !== "cancelado").length;
+              return naoConfirmados > 0 ? (
+                <div className="rounded-xl p-3 text-sm bg-destructive/10 text-destructive font-bold">
+                  ⚠️ {naoConfirmados} agendamento(s) deste dia ainda não foram confirmados com o cliente.
+                </div>
+              ) : (
+                <div className="rounded-xl p-3 text-sm bg-green-100 text-green-700 font-bold">
+                  ✅ Todos os agendamentos deste dia já foram confirmados.
+                </div>
+              );
+            })()}
             {ags.length === 0 && <EmptyState label="Nenhum agendamento para este dia." />}
             {ags.map((a) => {
               const pet = pets[a.pet_id];
@@ -186,10 +227,21 @@ function EquipePortal() {
               return (
                 <Card key={a.id}>
                   <div className="flex-1">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-mono text-lg font-bold text-brand">{a.horario.slice(0,5)}</span>
                       <span className="font-bold">{pet?.nome ?? "Pet"}</span>
                       <span className="text-xs text-ink/50">{pet?.raca}{pet?.porte ? ` • ${pet.porte}` : ""}</span>
+                      <button
+                        onClick={() => toggleConfirmadoDiaAnterior(a.id, a.confirmado_dia_anterior)}
+                        className={
+                          "text-[11px] font-bold px-2 py-0.5 rounded-full border " +
+                          (a.confirmado_dia_anterior
+                            ? "bg-green-100 text-green-700 border-green-200"
+                            : "bg-destructive/10 text-destructive border-destructive/20")
+                        }
+                      >
+                        {a.confirmado_dia_anterior ? "✅ Confirmado no dia anterior" : "⚠️ Ainda não confirmado"}
+                      </button>
                     </div>
                     <p className="text-sm text-ink/70 mt-1">
                       {a.servico.replace(/_/g, " ")} — {cli?.nome ?? "Cliente"} {cli?.telefone ? `• ${cli.telefone}` : ""}
@@ -229,9 +281,9 @@ function EquipePortal() {
             {tds.length > 0 && (
               <div>
                 <h3 className="font-serif text-lg mb-2">Rota do dia no mapa</h3>
-                <TaxiMap stops={tds.map<TaxiStop>((t) => ({
+                <TaxiMap stops={tds.map<TaxiStop>((t, idx) => ({
                   id: t.id,
-                  label: pets[t.pet_id]?.nome ?? "Pet",
+                  label: `${idx + 1}. ${pets[t.pet_id]?.nome ?? "Pet"}`,
                   address: `${t.endereco_coleta}, ${t.bairro}`,
                   horario: t.horario,
                 }))} />
@@ -239,20 +291,43 @@ function EquipePortal() {
             )}
             <div className="space-y-3">
               {tds.length === 0 && <EmptyState label="Nenhum Taxi Dog para este dia." />}
-              {tds.map((t) => {
+              {tds.map((t, idx) => {
                 const pet = pets[t.pet_id];
                 const cli = profs[t.cliente_id];
                 return (
                   <Card key={t.id}>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-lg font-bold text-accent">{t.horario.slice(0,5)}</span>
-                        <span className="font-bold">{pet?.nome ?? "Pet"}</span>
-                        <span className="text-xs text-ink/50 uppercase">{t.tipo.replace(/_/g, " ")}</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={idx === 0}
+                          onClick={() => moverOrdemTaxi(t.id, -1)}
+                          className="size-6 grid place-items-center rounded border border-border text-xs disabled:opacity-30 hover:bg-brand/5"
+                          aria-label="Mover para cima na rota"
+                        >
+                          ▲
+                        </button>
+                        <span className="size-6 grid place-items-center rounded-full bg-accent/10 text-accent text-xs font-bold">{idx + 1}</span>
+                        <button
+                          type="button"
+                          disabled={idx === tds.length - 1}
+                          onClick={() => moverOrdemTaxi(t.id, 1)}
+                          className="size-6 grid place-items-center rounded border border-border text-xs disabled:opacity-30 hover:bg-brand/5"
+                          aria-label="Mover para baixo na rota"
+                        >
+                          ▼
+                        </button>
                       </div>
-                      <p className="text-sm text-ink/80 mt-1">📍 {t.endereco_coleta}, {t.bairro}{t.ponto_referencia ? ` (${t.ponto_referencia})` : ""}</p>
-                      <p className="text-xs text-ink/60 mt-1">{cli?.nome ?? "Cliente"} {cli?.telefone ? `• ${cli.telefone}` : ""}</p>
-                      {t.observacoes && <p className="text-xs text-ink/50 mt-1 italic">"{t.observacoes}"</p>}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono text-lg font-bold text-accent">{t.horario.slice(0,5)}</span>
+                          <span className="font-bold">{pet?.nome ?? "Pet"}</span>
+                          <span className="text-xs text-ink/50 uppercase">{t.tipo.replace(/_/g, " ")}</span>
+                        </div>
+                        <p className="text-sm text-ink/80 mt-1">📍 {t.endereco_coleta}, {t.bairro}{t.ponto_referencia ? ` (${t.ponto_referencia})` : ""}</p>
+                        <p className="text-xs text-ink/60 mt-1">{cli?.nome ?? "Cliente"} {cli?.telefone ? `• ${cli.telefone}` : ""}</p>
+                        {t.observacoes && <p className="text-xs text-ink/50 mt-1 italic">"{t.observacoes}"</p>}
+                      </div>
                     </div>
                     <div className="flex flex-col gap-2 items-end">
                       <StatusSelect value={t.status} options={["solicitado", "confirmado", "a_caminho", "concluido", "cancelado"]} onChange={(s) => updateTd(t.id, s)} />
@@ -274,7 +349,7 @@ function EquipePortal() {
         {tab === "avisos" && <AvisosTab pacotes={pacotes} profs={profs} clientes={clientes} templates={templates} />}
         {tab === "fechamento" && <FechamentoTab ags={ags} pets={pets} profs={profs} date={date} />}
         {tab === "pacotes" && (
-          <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} templates={templates} />
+          <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} onAtualizarPagamento={atualizarStatusPagamento} templates={templates} />
         )}
         {tab === "precos" && <PrecosTab />}
         {tab === "config" && <ConfigTab limiteDia={limiteDia} onSaved={setLimiteDia} />}
@@ -413,18 +488,13 @@ function PacoteSelect({ value, pacotes, onChange }: { value: string | null; paco
       <option value="">Avulso</option>
       {pacotes.map((pc) => (
         <option key={pc.id} value={pc.id}>
-          Pacote ({pc.banhos_usados}/{pc.total_banhos} usados)
+          {pc.periodicidade === "quinzenal" ? "Quinzenal" : "Mensal"} ({pc.banhos_usados}/{pc.total_banhos} usados)
         </option>
       ))}
     </select>
   );
 }
 
-function diasRestantesNoMes(): number {
-  const now = new Date();
-  const ultimoDia = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  return ultimoDia - now.getDate();
-}
 function amanha(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -471,9 +541,16 @@ function AvisosTab({
     return profs[id]?.telefone ?? clientes.find((c) => c.id === id)?.telefone ?? null;
   }
 
-  const diasFimMes = diasRestantesNoMes();
+  function diasAteFimCiclo(periodoFim: string): number {
+    const fim = new Date(periodoFim + "T00:00:00");
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    return Math.round((fim.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
   const ultimoBanho = pacotes.filter((pc) => pc.ativo && pc.total_banhos - pc.banhos_usados === 1);
-  const sobrandoFimMes = pacotes.filter((pc) => pc.ativo && pc.total_banhos - pc.banhos_usados > 0 && diasFimMes <= 5);
+  const sobrandoFimCiclo = pacotes.filter((pc) => pc.ativo && pc.total_banhos - pc.banhos_usados > 0 && diasAteFimCiclo(pc.periodo_fim) <= 3);
+  const pagamentosPendentes = pacotes.filter((pc) => pc.ativo && pc.status_pagamento !== "pago");
 
   return (
     <div className="space-y-8">
@@ -536,13 +613,12 @@ function AvisosTab({
 
       <div>
         <h3 className="font-serif text-lg mb-3">
-          ⏰ Sobra de banhos perto do fim do mês ({sobrandoFimMes.length})
-          <span className="ml-2 text-xs font-normal text-ink/40">faltam {diasFimMes} dia(s) para o mês acabar</span>
+          ⏰ Sobra de banhos perto do fim do ciclo ({sobrandoFimCiclo.length})
         </h3>
-        {diasFimMes > 5 && <p className="text-xs text-ink/40 mb-2">Essa lista fica mais relevante nos últimos 5 dias do mês.</p>}
-        {sobrandoFimMes.length === 0 && <EmptyState label="Nenhum pacote com sobra relevante agora." />}
+        <p className="text-xs text-ink/40 mb-2">Considera os últimos 3 dias antes do fim do ciclo (mensal ou quinzenal) de cada pacote.</p>
+        {sobrandoFimCiclo.length === 0 && <EmptyState label="Nenhum pacote com sobra relevante agora." />}
         <div className="space-y-2">
-          {sobrandoFimMes.map((pc) => {
+          {sobrandoFimCiclo.map((pc) => {
             const tel = telefoneCliente(pc.cliente_id);
             const restantes = pc.total_banhos - pc.banhos_usados;
             const msg = buildMessage(templates, "pacote:sobra_fim_mes", { saldo: restantes });
@@ -550,12 +626,43 @@ function AvisosTab({
               <Card key={pc.id}>
                 <div>
                   <p className="font-bold">{nomeCliente(pc.cliente_id)}</p>
-                  <p className="text-xs text-ink/50">{restantes} banho(s) sobrando este mês</p>
+                  <p className="text-xs text-ink/50">{restantes} banho(s) sobrando neste ciclo ({pc.periodicidade === "quinzenal" ? "quinzenal" : "mensal"})</p>
                 </div>
                 {tel ? (
                   <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
                      className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
                     ⏰ Avisar sobra
+                  </a>
+                ) : <span className="text-[11px] text-ink/40">Sem telefone cadastrado</span>}
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">💳 Pagamentos de pacote pendentes ({pagamentosPendentes.length})</h3>
+        {pagamentosPendentes.length === 0 && <EmptyState label="Nenhum pagamento pendente no momento." />}
+        <div className="space-y-2">
+          {pagamentosPendentes.map((pc) => {
+            const tel = telefoneCliente(pc.cliente_id);
+            const label = pc.periodicidade === "quinzenal" ? "quinzenal" : "mensal";
+            const msg = buildMessage(templates, "pacote:cobranca", { periodicidade: label });
+            return (
+              <Card key={pc.id}>
+                <div>
+                  <p className="font-bold">{nomeCliente(pc.cliente_id)}</p>
+                  <p className="text-xs text-ink/50">
+                    Pacote {label} — status:{" "}
+                    <span className={pc.status_pagamento === "atrasado" ? "text-destructive font-bold" : "text-accent font-bold"}>
+                      {pc.status_pagamento === "atrasado" ? "atrasado" : "pendente"}
+                    </span>
+                  </p>
+                </div>
+                {tel ? (
+                  <a href={waLink(tel, msg)} target="_blank" rel="noreferrer"
+                     className="text-xs bg-destructive text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                    💳 Cobrar pagamento
                   </a>
                 ) : <span className="text-[11px] text-ink/40">Sem telefone cadastrado</span>}
               </Card>
@@ -652,56 +759,99 @@ function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<str
 }
 
 function PacotesTab({
-  pacotes, clientes, profs, onCriar, onReload, templates,
+  pacotes, clientes, profs, onCriar, onReload, onAtualizarPagamento, templates,
 }: {
   pacotes: PacoteRow[];
   clientes: Prof[];
   profs: Record<string, Prof>;
-  onCriar: (clienteId: string) => void;
+  onCriar: (clienteId: string, periodicidade: "mensal" | "quinzenal", totalBanhos: number) => void;
   onReload: () => void;
+  onAtualizarPagamento: (id: string, status: "pendente" | "pago" | "atrasado") => void;
   templates: TemplateMap;
 }) {
   const [clienteId, setClienteId] = useState("");
+  const [periodicidade, setPeriodicidade] = useState<"mensal" | "quinzenal">("mensal");
+  const [totalBanhos, setTotalBanhos] = useState(4);
   const clientesComPacote = new Set(pacotes.map((p) => p.cliente_id));
   const disponiveis = clientes.filter((c) => !clientesComPacote.has(c.id));
+
+  function onPeriodicidadeChange(v: "mensal" | "quinzenal") {
+    setPeriodicidade(v);
+    setTotalBanhos(v === "quinzenal" ? 2 : 4);
+  }
 
   return (
     <div className="space-y-6">
       <div className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="font-serif text-lg mb-3">Criar pacote mensal (4 banhos)</h3>
-        <div className="flex flex-wrap gap-3 items-center">
-          <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface flex-1 min-w-[220px]">
+        <h3 className="font-serif text-lg mb-3">Criar pacote de banhos</h3>
+        <div className="grid sm:grid-cols-2 gap-3 mb-3">
+          <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="px-4 py-2 rounded-lg border border-border bg-surface">
             <option value="">Escolha o cliente</option>
             {disponiveis.map((c) => <option key={c.id} value={c.id}>{c.nome || c.telefone || c.id}</option>)}
           </select>
+          <select value={periodicidade} onChange={(e) => onPeriodicidadeChange(e.target.value as "mensal" | "quinzenal")} className="px-4 py-2 rounded-lg border border-border bg-surface">
+            <option value="mensal">Mensal</option>
+            <option value="quinzenal">Quinzenal</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="text-sm text-ink/60 flex items-center gap-2">
+            Quantidade de banhos no ciclo:
+            <input type="number" min={1} max={20} value={totalBanhos} onChange={(e) => setTotalBanhos(Number(e.target.value))} className="w-20 px-3 py-1.5 rounded-lg border border-border bg-surface" />
+          </label>
           <button
             disabled={!clienteId}
-            onClick={() => { onCriar(clienteId); setClienteId(""); }}
+            onClick={() => { onCriar(clienteId, periodicidade, totalBanhos); setClienteId(""); }}
             className="px-5 py-2 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50"
           >
-            Criar pacote este mês
+            Criar pacote
           </button>
         </div>
-        <p className="text-[11px] text-ink/40 mt-2">Clientes que já têm pacote ativo neste mês não aparecem na lista.</p>
+        <p className="text-[11px] text-ink/40 mt-2">Clientes que já têm um pacote com ciclo ativo não aparecem na lista.</p>
       </div>
 
       <div>
-        <h3 className="font-serif text-lg mb-3">Pacotes ativos este mês ({pacotes.length})</h3>
-        {pacotes.length === 0 && <EmptyState label="Nenhum pacote criado este mês ainda." />}
+        <h3 className="font-serif text-lg mb-3">Pacotes com ciclo ativo ({pacotes.length})</h3>
+        {pacotes.length === 0 && <EmptyState label="Nenhum pacote com ciclo ativo no momento." />}
         <div className="space-y-2">
           {pacotes.map((pc) => {
             const cli = profs[pc.cliente_id] ?? clientes.find((c) => c.id === pc.cliente_id);
             const restantes = Math.max(pc.total_banhos - pc.banhos_usados, 0);
-            const msgSaldo = buildMessage(templates, "pacote:aviso_saldo", { pacote: "Pacote mensal — 4 banhos", pet: cli?.nome ?? "cliente", saldo: restantes });
+            const label = pc.periodicidade === "quinzenal" ? "Quinzenal" : "Mensal";
+            const periodoFmt =
+              new Date(pc.periodo_inicio + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) +
+              " – " +
+              new Date(pc.periodo_fim + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+            const msgSaldo = buildMessage(templates, "pacote:aviso_saldo", { pacote: `Pacote ${label.toLowerCase()}`, pet: cli?.nome ?? "cliente", saldo: restantes });
             const msgSobra = buildMessage(templates, "pacote:sobra_fim_mes", { saldo: restantes });
+            const msgCobranca = buildMessage(templates, "pacote:cobranca", { periodicidade: label.toLowerCase() });
             return (
               <Card key={pc.id}>
                 <div className="flex-1">
-                  <p className="font-bold">{cli?.nome ?? "Cliente"}</p>
-                  <p className="text-xs text-ink/50">{pc.banhos_usados}/{pc.total_banhos} banhos usados — {restantes} restante(s)</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold">{cli?.nome ?? "Cliente"}</p>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-brand/10 text-brand">{label}</span>
+                    {pc.status_pagamento === "pago" ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Pago</span>
+                    ) : pc.status_pagamento === "atrasado" ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-destructive/10 text-destructive">Atrasado</span>
+                    ) : (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-accent/10 text-accent">Pendente</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-ink/50 mt-1">{pc.banhos_usados}/{pc.total_banhos} banhos usados — {restantes} restante(s) • Ciclo: {periodoFmt}</p>
                   <div className="w-full h-2 rounded-full bg-surface border border-border overflow-hidden mt-2 max-w-xs">
                     <div className="h-full bg-brand rounded-full" style={{ width: `${Math.min((pc.banhos_usados / pc.total_banhos) * 100, 100)}%` }} />
                   </div>
+                  <select
+                    value={pc.status_pagamento}
+                    onChange={(e) => onAtualizarPagamento(pc.id, e.target.value as "pendente" | "pago" | "atrasado")}
+                    className="mt-2 text-xs px-2 py-1 rounded-lg border border-border bg-surface"
+                  >
+                    <option value="pendente">Pagamento: pendente</option>
+                    <option value="pago">Pagamento: pago</option>
+                    <option value="atrasado">Pagamento: atrasado</option>
+                  </select>
                 </div>
                 <div className="flex flex-col gap-2 items-end">
                   {cli?.telefone && (
@@ -713,7 +863,13 @@ function PacotesTab({
                   {cli?.telefone && restantes > 0 && (
                     <a href={waLink(cli.telefone, msgSobra)} target="_blank" rel="noreferrer"
                        className="text-xs bg-accent/90 text-accent-foreground px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
-                      ⏰ Avisar sobra (fim do mês)
+                      ⏰ Avisar sobra
+                    </a>
+                  )}
+                  {cli?.telefone && pc.status_pagamento !== "pago" && (
+                    <a href={waLink(cli.telefone, msgCobranca)} target="_blank" rel="noreferrer"
+                       className="text-xs bg-destructive text-white px-3 py-1 rounded-full font-bold hover:opacity-90 whitespace-nowrap">
+                      💳 Cobrar pagamento
                     </a>
                   )}
                 </div>
