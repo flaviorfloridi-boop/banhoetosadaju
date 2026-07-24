@@ -114,7 +114,7 @@ function Home() {
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
             <ServiceCard n="01" title="Banho e Tosa" desc="Corte na tesoura ou máquina, hidratação profunda e limpeza de ouvidos." img={pet3.url} />
             <ServiceCard n="02" title="Taxi Dog" desc="Buscamos e entregamos seu pet com segurança em veículos climatizados." img={pet2.url} highlight />
-            <ServiceCard n="03" title="Spa Relaxante" desc="Aromaterapia, massagem relaxante e banhos terapêuticos para pets ansiosos." img={pet4.url} />
+            <ServiceCard n="03" title="Cuidados com o Pet" desc="Acompanhamento de bem-estar, fotos do banho e atenção especial à saúde da pele e pelagem do seu pet." img={pet4.url} />
           </div>
         </div>
       </section>
