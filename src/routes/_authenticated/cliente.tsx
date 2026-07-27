@@ -98,11 +98,11 @@ export default function ClientePortal() {
         {pacote && <PacoteCard pacote={pacote} ags={ags} />}
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
-          <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
-          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
-          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog</TabBtn>
-          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
-          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos do meu pet</TabBtn>
+          <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>🐾 Meus pets</TabBtn>
+          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>🛁 Agendar</TabBtn>
+          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>🚐 Taxi Dog</TabBtn>
+          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>💰 Preços</TabBtn>
+          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>📸 Fotos do meu pet</TabBtn>
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
