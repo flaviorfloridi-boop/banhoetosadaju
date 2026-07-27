@@ -196,6 +196,90 @@
   }
 }
 
+/* Soft brand glow + refined border on hover (cards) */
+@utility card-glow {
+  position: relative;
+  transition: box-shadow 300ms ease, transform 300ms ease, border-color 300ms ease;
+  &:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in oklab, var(--brand) 28%, transparent);
+    box-shadow:
+      0 18px 40px -24px color-mix(in oklab, var(--brand) 55%, transparent),
+      0 0 0 1px color-mix(in oklab, var(--brand) 10%, transparent),
+      0 2px 10px -6px color-mix(in oklab, var(--ink) 12%, transparent);
+  }
+}
+
+/* Gradient hairline border on top of a card */
+@utility edge-top {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--brand) 45%, transparent) 25%,
+      color-mix(in oklab, var(--accent) 60%, transparent) 55%,
+      transparent 100%
+    );
+    opacity: 0.7;
+    pointer-events: none;
+  }
+}
+
+/* Section backgrounds with subtle depth */
+@utility bg-soft-brand {
+  background-image:
+    radial-gradient(ellipse 90% 60% at 15% 0%, color-mix(in oklab, var(--brand) 9%, transparent), transparent 70%),
+    radial-gradient(ellipse 70% 55% at 90% 20%, color-mix(in oklab, var(--accent) 8%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--surface) 0%, color-mix(in oklab, var(--brand-light) 70%, var(--surface)) 100%);
+}
+
+@utility bg-soft-blush {
+  background-image:
+    radial-gradient(ellipse 60% 50% at 80% 0%, color-mix(in oklab, var(--accent) 10%, transparent), transparent 65%),
+    linear-gradient(180deg, color-mix(in oklab, var(--brand-light) 85%, var(--surface)) 0%, var(--surface) 100%);
+}
+
+/* Very light paper-like grain, applied over a section */
+@utility texture-grain {
+  position: relative;
+  isolation: isolate;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: radial-gradient(color-mix(in oklab, var(--ink) 70%, transparent) 0.5px, transparent 0.5px);
+    background-size: 5px 5px;
+  }
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 @utility btn-lift {
   transition: box-shadow 220ms ease, transform 220ms ease, opacity 180ms ease;
   &:hover {
