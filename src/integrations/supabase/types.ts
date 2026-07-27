@@ -99,6 +99,44 @@ export type Database = {
         }
         Relationships: []
       }
+      despesas_diarias: {
+        Row: {
+          categoria: string
+          created_at: string
+          created_by: string | null
+          data: string
+          descricao: string
+          id: string
+          valor_cents: number
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          data: string
+          descricao: string
+          id?: string
+          valor_cents: number
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          descricao?: string
+          id?: string
+          valor_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "despesas_diarias_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gallery_posts: {
         Row: {
           created_at: string

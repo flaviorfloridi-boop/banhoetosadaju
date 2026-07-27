@@ -38,6 +38,7 @@ interface PetPhotoRow { id: string; pet_id: string; storage_path: string; legend
 interface GalleryRow { id: string; storage_path: string; legenda: string | null; publicado: boolean; ordem: number; }
 interface PacoteRow { id: string; cliente_id: string; mes_referencia: string; total_banhos: number; banhos_usados: number; ativo: boolean; periodicidade: string; periodo_inicio: string; periodo_fim: string; status_pagamento: string; }
 interface Pagamento { id: string; agendamento_id: string | null; valor_cents: number; status: string; descricao: string; }
+interface Despesa { id: string; data: string; categoria: string; descricao: string; valor_cents: number; created_at: string; }
 
 function today() { return new Date().toISOString().slice(0, 10); }
 function mesReferenciaAtual(): string {
@@ -808,6 +809,10 @@ function CalendarioTab() {
 
 function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<string, Pet>; profs: Record<string, Prof>; date: string }) {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [despesas, setDespesas] = useState<Despesa[]>([]);
+  const [novaDescricao, setNovaDescricao] = useState("");
+  const [novoValor, setNovoValor] = useState("");
+  const [novaCategoria, setNovaCategoria] = useState("outros");
 
   const concluidos = ags.filter((a) => a.status === "concluido");
   const doPacote = concluidos.filter((a) => a.pacote_id);
@@ -823,7 +828,44 @@ function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<str
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ags, date]);
 
+  useEffect(() => {
+    void loadDespesas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  async function loadDespesas() {
+    const { data } = await supabase.from("despesas_diarias").select("*").eq("data", date).order("created_at", { ascending: false });
+    setDespesas((data as Despesa[]) ?? []);
+  }
+
+  async function adicionarDespesa() {
+    const valorCents = Math.round(parseFloat(novoValor.replace(",", ".")) * 100);
+    if (!novaDescricao.trim() || !valorCents || valorCents <= 0) {
+      toast.error("Preencha a descrição e um valor válido.");
+      return;
+    }
+    const { error } = await supabase.from("despesas_diarias").insert({
+      data: date,
+      categoria: novaCategoria,
+      descricao: novaDescricao.trim(),
+      valor_cents: valorCents,
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Despesa lançada");
+    setNovaDescricao("");
+    setNovoValor("");
+    void loadDespesas();
+  }
+
+  async function removerDespesa(id: string) {
+    const { error } = await supabase.from("despesas_diarias").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    void loadDespesas();
+  }
+
   const totalRecebidoCents = pagamentos.reduce((sum, p) => sum + p.valor_cents, 0);
+  const totalDespesasCents = despesas.reduce((sum, d) => sum + d.valor_cents, 0);
+  const saldoLiquidoCents = totalRecebidoCents - totalDespesasCents;
 
   return (
     <div className="space-y-6">
@@ -845,10 +887,69 @@ function FechamentoTab({ ags, pets, profs, date }: { ags: Ag[]; pets: Record<str
           <p className="text-2xl font-bold text-accent">R$ {(totalRecebidoCents / 100).toFixed(2)}</p>
         </div>
       </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="bg-card border border-border rounded-2xl p-4">
+          <p className="text-xs text-ink/50">Despesas do dia</p>
+          <p className="text-2xl font-bold text-destructive">R$ {(totalDespesasCents / 100).toFixed(2)}</p>
+        </div>
+        <div className={"col-span-2 md:col-span-1 rounded-2xl p-4 " + (saldoLiquidoCents >= 0 ? "bg-green-100" : "bg-destructive/10")}>
+          <p className="text-xs text-ink/50">Saldo líquido do dia</p>
+          <p className={"text-2xl font-bold " + (saldoLiquidoCents >= 0 ? "text-green-700" : "text-destructive")}>
+            R$ {(saldoLiquidoCents / 100).toFixed(2)}
+          </p>
+        </div>
+      </div>
       <p className="text-[11px] text-ink/40">
         O valor recebido considera apenas pagamentos com status "pago" vinculados aos agendamentos concluídos neste dia.
-        Banhos de pacote não geram receita nova (já foram pagos na assinatura mensal).
+        Banhos de pacote não geram receita nova (já foram pagos na assinatura mensal). Saldo líquido = recebido em avulsos − despesas do dia.
       </p>
+
+      <div>
+        <h3 className="font-serif text-lg mb-2">Despesas do dia ({despesas.length})</h3>
+        <div className="bg-card border border-border rounded-2xl p-4 mb-3">
+          <div className="grid sm:grid-cols-[1fr_140px_120px_auto] gap-2">
+            <input
+              value={novaDescricao}
+              onChange={(e) => setNovaDescricao(e.target.value)}
+              placeholder="Descrição (ex: produtos de limpeza)"
+              className="px-3 py-2 rounded-lg border border-border bg-surface text-sm"
+            />
+            <select value={novaCategoria} onChange={(e) => setNovaCategoria(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm">
+              <option value="produtos">Produtos</option>
+              <option value="manutencao">Manutenção</option>
+              <option value="alimentacao">Alimentação</option>
+              <option value="transporte">Transporte</option>
+              <option value="salario">Salário/Comissão</option>
+              <option value="outros">Outros</option>
+            </select>
+            <input
+              value={novoValor}
+              onChange={(e) => setNovoValor(e.target.value)}
+              placeholder="R$ 0,00"
+              inputMode="decimal"
+              className="px-3 py-2 rounded-lg border border-border bg-surface text-sm"
+            />
+            <button onClick={adicionarDespesa} className="px-4 py-2 rounded-lg bg-destructive text-white text-sm font-bold hover:opacity-90">
+              + Lançar
+            </button>
+          </div>
+        </div>
+        {despesas.length === 0 && <EmptyState label="Nenhuma despesa lançada neste dia." />}
+        <div className="space-y-2">
+          {despesas.map((d) => (
+            <Card key={d.id}>
+              <div>
+                <p className="font-bold">{d.descricao}</p>
+                <p className="text-xs text-ink/50 capitalize">{d.categoria.replace(/_/g, " ")}</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-bold text-destructive">R$ {(d.valor_cents / 100).toFixed(2)}</span>
+                <button onClick={() => removerDespesa(d.id)} className="text-xs text-ink/40 hover:text-destructive">✕</button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
 
       <div>
         <h3 className="font-serif text-lg mb-2">Banhos de pacote ({doPacote.length})</h3>
