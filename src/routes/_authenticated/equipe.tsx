@@ -209,6 +209,7 @@ function EquipePortal() {
 
         {tab === "agenda" && (
           <div className="space-y-3">
+            <NovoAgendamentoForm clientes={clientes} date={date} onCriado={() => { void load(); }} />
             <div className={"rounded-xl p-3 text-sm " + (ags.length >= limiteDia ? "bg-destructive/10 text-destructive font-bold" : "bg-brand/5 text-brand")}>
               {ags.length}/{limiteDia} banhos agendados neste dia. {ags.length >= limiteDia && "Novos agendamentos serão bloqueados."}
             </div>
@@ -710,6 +711,115 @@ function isoDate(d: Date): string {
 }
 
 interface AgCalendario { id: string; data: string; horario: string; servico: string; status: string; pet_id: string; pacote_id: string | null; }
+
+interface PetSimples { id: string; nome: string; }
+const SERVICOS_AGENDAMENTO = [
+  { value: "banho", label: "Banho" },
+  { value: "tosa", label: "Tosa" },
+  { value: "banho_e_tosa", label: "Banho e Tosa" },
+  { value: "tosa_higienica", label: "Tosa higiênica" },
+  { value: "hidratacao", label: "Hidratação" },
+];
+
+function NovoAgendamentoForm({ clientes, date, onCriado }: { clientes: Prof[]; date: string; onCriado: () => void }) {
+  const [aberto, setAberto] = useState(false);
+  const [clienteId, setClienteId] = useState("");
+  const [petsDoCliente, setPetsDoCliente] = useState<PetSimples[]>([]);
+  const [petId, setPetId] = useState("");
+  const [servico, setServico] = useState("banho");
+  const [dataAg, setDataAg] = useState(date);
+  const [horario, setHorario] = useState("");
+  const [obs, setObs] = useState("");
+  const [salvando, setSalvando] = useState(false);
+
+  useEffect(() => { setDataAg(date); }, [date]);
+
+  useEffect(() => {
+    setPetId("");
+    setPetsDoCliente([]);
+    if (!clienteId) return;
+    (async () => {
+      const { data } = await supabase.from("pets").select("id,nome").eq("tutor_id", clienteId).order("nome");
+      setPetsDoCliente((data as PetSimples[]) ?? []);
+    })();
+  }, [clienteId]);
+
+  async function salvar() {
+    if (!clienteId || !petId || !dataAg || !horario) {
+      toast.error("Preencha cliente, pet, data e horário.");
+      return;
+    }
+    setSalvando(true);
+    const { error } = await supabase.from("agendamentos").insert({
+      cliente_id: clienteId,
+      pet_id: petId,
+      servico: servico as "banho" | "tosa" | "banho_e_tosa" | "tosa_higienica" | "hidratacao",
+      data: dataAg,
+      horario,
+      observacoes: obs || null,
+      status: "confirmado",
+    });
+    setSalvando(false);
+    if (error) return toast.error(error.message);
+    toast.success("Agendamento cadastrado!");
+    setClienteId(""); setPetId(""); setHorario(""); setObs("");
+    setAberto(false);
+    onCriado();
+  }
+
+  if (!aberto) {
+    return (
+      <button
+        onClick={() => setAberto(true)}
+        className="w-full text-left rounded-xl border border-dashed border-brand/30 text-brand font-bold text-sm px-4 py-3 hover:bg-brand/5"
+      >
+        + Cadastrar agendamento recebido pelo WhatsApp
+      </button>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-serif text-lg">Cadastrar agendamento</h3>
+        <button onClick={() => setAberto(false)} className="text-xs text-ink/40 hover:text-ink">Cancelar</button>
+      </div>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <select value={clienteId} onChange={(e) => setClienteId(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm">
+          <option value="">Escolha o cliente</option>
+          {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome || c.telefone || c.id}</option>)}
+        </select>
+        <select value={petId} onChange={(e) => setPetId(e.target.value)} disabled={!clienteId} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm disabled:opacity-50">
+          <option value="">{clienteId ? (petsDoCliente.length ? "Escolha o pet" : "Cliente sem pet cadastrado") : "Escolha o cliente primeiro"}</option>
+          {petsDoCliente.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+        </select>
+        <select value={servico} onChange={(e) => setServico(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm">
+          {SERVICOS_AGENDAMENTO.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        <input type="date" value={dataAg} onChange={(e) => setDataAg(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm" />
+      </div>
+      <div>
+        <p className="text-xs text-ink/50 mb-1.5">Horário</p>
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          {HORARIOS_GRADE.map((h) => (
+            <button
+              key={h}
+              type="button"
+              onClick={() => setHorario(h)}
+              className={"text-xs py-2 rounded-lg border font-bold " + (horario === h ? "border-brand bg-brand text-primary-foreground" : "border-border bg-surface hover:border-brand/50")}
+            >
+              {h}
+            </button>
+          ))}
+        </div>
+      </div>
+      <input value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Observações (opcional)" className="w-full px-3 py-2 rounded-lg border border-border bg-surface text-sm" />
+      <button onClick={salvar} disabled={salvando} className="px-5 py-2 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
+        {salvando ? "Salvando…" : "Cadastrar agendamento"}
+      </button>
+    </div>
+  );
+}
 
 function CalendarioTab() {
   const [inicioSemana, setInicioSemana] = useState(() => getSegunda(new Date()));
