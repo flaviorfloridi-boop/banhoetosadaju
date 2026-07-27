@@ -510,15 +510,24 @@ function TaxiTab({ pets, taxis, ags, onChange, userId }: { pets: Pet[]; taxis: T
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    solicitado: "bg-muted text-muted-foreground",
-    confirmado: "bg-brand/20 text-brand",
-    a_caminho: "bg-accent/20 text-accent",
-    em_andamento: "bg-accent/20 text-accent",
-    concluido: "bg-green-100 text-green-700",
-    cancelado: "bg-destructive/10 text-destructive",
+    solicitado: "bg-muted text-muted-foreground ring-1 ring-inset ring-border",
+    confirmado: "bg-brand/12 text-brand ring-1 ring-inset ring-brand/25",
+    a_caminho: "bg-accent/12 text-accent ring-1 ring-inset ring-accent/25",
+    em_andamento: "bg-accent/12 text-accent ring-1 ring-inset ring-accent/25",
+    concluido: "bg-green-100 text-green-700 ring-1 ring-inset ring-green-600/20",
+    cancelado: "bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20",
+  };
+  const icon: Record<string, string> = {
+    solicitado: "🕒",
+    confirmado: "✅",
+    a_caminho: "🚐",
+    em_andamento: "🛁",
+    concluido: "🎉",
+    cancelado: "✖️",
   };
   return (
-    <span className={"text-[10px] px-2 py-1 rounded-full uppercase font-bold whitespace-nowrap " + (map[status] || "bg-muted")}>
+    <span className={"inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full uppercase font-bold tracking-wide whitespace-nowrap transition " + (map[status] || "bg-muted")}>
+      <span aria-hidden className="text-[11px] leading-none">{icon[status] ?? "•"}</span>
       {status.replace(/_/g, " ")}
     </span>
   );
