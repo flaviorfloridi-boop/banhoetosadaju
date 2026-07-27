@@ -192,17 +192,17 @@ function EquipePortal() {
         </div>
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
-          <TabBtn active={tab === "agenda"} onClick={() => setTab("agenda")}>Banho & Tosa ({ags.length}/{limiteDia})</TabBtn>
+          <TabBtn active={tab === "agenda"} onClick={() => setTab("agenda")}>🛁 Banho & Tosa ({ags.length}/{limiteDia})</TabBtn>
           <TabBtn active={tab === "calendario"} onClick={() => setTab("calendario")}>📆 Calendário</TabBtn>
-          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog ({tds.length})</TabBtn>
+          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>🚐 Taxi Dog ({tds.length})</TabBtn>
           <TabBtn active={tab === "avisos"} onClick={() => setTab("avisos")}>🔔 Central de Avisos</TabBtn>
-          <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>Fechamento do dia</TabBtn>
-          <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>Pacotes</TabBtn>
-          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
-          <TabBtn active={tab === "config"} onClick={() => setTab("config")}>Configurações</TabBtn>
-          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos dos pets</TabBtn>
-          <TabBtn active={tab === "galeria"} onClick={() => setTab("galeria")}>Galeria site</TabBtn>
-          <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>Mensagens</TabBtn>
+          <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>🧾 Fechamento do dia</TabBtn>
+          <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>🎟️ Pacotes</TabBtn>
+          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>💰 Preços</TabBtn>
+          <TabBtn active={tab === "config"} onClick={() => setTab("config")}>⚙️ Configurações</TabBtn>
+          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>📸 Fotos dos pets</TabBtn>
+          <TabBtn active={tab === "galeria"} onClick={() => setTab("galeria")}>🖼️ Galeria site</TabBtn>
+          <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>💬 Mensagens</TabBtn>
         </div>
 
         {tab === "agenda" && (
@@ -458,21 +458,26 @@ function MensagensTab() {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  return <div className="bg-card border border-border rounded-2xl p-5 flex flex-wrap gap-4 items-start justify-between">{children}</div>;
+  return <div className="bg-card border border-border rounded-2xl p-5 flex flex-wrap gap-4 items-start justify-between edge-top card-glow animate-soft-in">{children}</div>;
 }
 function EmptyState({ label }: { label: string }) {
-  return <div className="bg-card border border-dashed border-border rounded-2xl p-10 text-center text-ink/50">{label}</div>;
+  return (
+    <div className="bg-card/60 border border-dashed border-brand/25 rounded-2xl p-12 text-center text-ink/50 animate-soft-in">
+      <div aria-hidden className="text-3xl mb-2 opacity-60">🐾</div>
+      {label}
+    </div>
+  );
 }
 function TabBtn({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
-    <button onClick={onClick} className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition " + (active ? "border-brand text-brand" : "border-transparent text-ink/50 hover:text-ink")}>
+    <button onClick={onClick} className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition rounded-t-lg " + (active ? "border-brand text-brand bg-brand/5" : "border-transparent text-ink/50 hover:text-ink hover:bg-brand/5")}>
       {children}
     </button>
   );
 }
 function StatusSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (s: string) => void }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm font-bold capitalize">
+    <select value={value} onChange={(e) => onChange(e.target.value)} className="px-3 py-2 rounded-lg border border-border bg-surface text-sm font-bold capitalize transition hover:border-brand/40 focus:border-brand">
       {options.map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}
     </select>
   );

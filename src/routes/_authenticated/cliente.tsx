@@ -98,11 +98,11 @@ export default function ClientePortal() {
         {pacote && <PacoteCard pacote={pacote} ags={ags} />}
 
         <div className="flex gap-2 border-b border-border mb-6 overflow-x-auto">
-          <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>Meus pets</TabBtn>
-          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>Agendar</TabBtn>
-          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>Taxi Dog</TabBtn>
-          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>Preços</TabBtn>
-          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>Fotos do meu pet</TabBtn>
+          <TabBtn active={tab === "pets"} onClick={() => setTab("pets")}>🐾 Meus pets</TabBtn>
+          <TabBtn active={tab === "agendar"} onClick={() => setTab("agendar")}>🛁 Agendar</TabBtn>
+          <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>🚐 Taxi Dog</TabBtn>
+          <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>💰 Preços</TabBtn>
+          <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>📸 Fotos do meu pet</TabBtn>
         </div>
 
         {tab === "pets" && <PetsTab pets={pets} onChange={loadAll} />}
@@ -187,7 +187,7 @@ function TabBtn({ active, children, onClick }: { active: boolean; children: Reac
   return (
     <button
       onClick={onClick}
-      className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition " + (active ? "border-brand text-brand" : "border-transparent text-ink/50 hover:text-ink")}
+      className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition rounded-t-lg " + (active ? "border-brand text-brand bg-brand/5" : "border-transparent text-ink/50 hover:text-ink hover:bg-brand/5")}
     >
       {children}
     </button>
@@ -510,15 +510,24 @@ function TaxiTab({ pets, taxis, ags, onChange, userId }: { pets: Pet[]; taxis: T
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
-    solicitado: "bg-muted text-muted-foreground",
-    confirmado: "bg-brand/20 text-brand",
-    a_caminho: "bg-accent/20 text-accent",
-    em_andamento: "bg-accent/20 text-accent",
-    concluido: "bg-green-100 text-green-700",
-    cancelado: "bg-destructive/10 text-destructive",
+    solicitado: "bg-muted text-muted-foreground ring-1 ring-inset ring-border",
+    confirmado: "bg-brand/12 text-brand ring-1 ring-inset ring-brand/25",
+    a_caminho: "bg-accent/12 text-accent ring-1 ring-inset ring-accent/25",
+    em_andamento: "bg-accent/12 text-accent ring-1 ring-inset ring-accent/25",
+    concluido: "bg-green-100 text-green-700 ring-1 ring-inset ring-green-600/20",
+    cancelado: "bg-destructive/10 text-destructive ring-1 ring-inset ring-destructive/20",
+  };
+  const icon: Record<string, string> = {
+    solicitado: "🕒",
+    confirmado: "✅",
+    a_caminho: "🚐",
+    em_andamento: "🛁",
+    concluido: "🎉",
+    cancelado: "✖️",
   };
   return (
-    <span className={"text-[10px] px-2 py-1 rounded-full uppercase font-bold whitespace-nowrap " + (map[status] || "bg-muted")}>
+    <span className={"inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-full uppercase font-bold tracking-wide whitespace-nowrap transition " + (map[status] || "bg-muted")}>
+      <span aria-hidden className="text-[11px] leading-none">{icon[status] ?? "•"}</span>
       {status.replace(/_/g, " ")}
     </span>
   );
