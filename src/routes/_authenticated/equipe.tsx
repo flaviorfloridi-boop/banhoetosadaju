@@ -17,6 +17,7 @@ import {
   type TemplateMap,
 } from "@/lib/whatsapp";
 import { useTemplates } from "@/hooks/use-templates";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 export const Route = createFileRoute("/_authenticated/equipe")({
   head: () => ({
@@ -46,7 +47,7 @@ function mesReferenciaAtual(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-type Tab = "agenda" | "calendario" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos";
+type Tab = "agenda" | "calendario" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos" | "financeiro";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -197,6 +198,7 @@ function EquipePortal() {
           <TabBtn active={tab === "taxi"} onClick={() => setTab("taxi")}>🚐 Taxi Dog ({tds.length})</TabBtn>
           <TabBtn active={tab === "avisos"} onClick={() => setTab("avisos")}>🔔 Central de Avisos</TabBtn>
           <TabBtn active={tab === "fechamento"} onClick={() => setTab("fechamento")}>🧾 Fechamento do dia</TabBtn>
+          <TabBtn active={tab === "financeiro"} onClick={() => setTab("financeiro")}>📊 Financeiro</TabBtn>
           <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>🎟️ Pacotes</TabBtn>
           <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>💰 Preços</TabBtn>
           <TabBtn active={tab === "config"} onClick={() => setTab("config")}>⚙️ Configurações</TabBtn>
@@ -351,6 +353,7 @@ function EquipePortal() {
 
         {tab === "avisos" && <AvisosTab pacotes={pacotes} profs={profs} clientes={clientes} templates={templates} />}
         {tab === "fechamento" && <FechamentoTab ags={ags} pets={pets} profs={profs} date={date} />}
+        {tab === "financeiro" && <FinanceiroTab />}
         {tab === "pacotes" && (
           <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} onAtualizarPagamento={atualizarStatusPagamento} templates={templates} />
         )}
@@ -807,6 +810,162 @@ function CalendarioTab() {
             </tbody>
           </table>
         </div>
+      )}
+    </div>
+  );
+}
+
+const CATEGORIA_CORES: Record<string, string> = {
+  produtos: "var(--brand)",
+  manutencao: "var(--accent)",
+  alimentacao: "#f59e0b",
+  transporte: "#3b82f6",
+  salario: "#8b5cf6",
+  outros: "#94a3b8",
+};
+
+function inicioMes(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+function fimMes(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+function fmtISO(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function FinanceiroTab() {
+  const [mesRef, setMesRef] = useState(() => inicioMes(new Date()));
+  const [loading, setLoading] = useState(true);
+  const [pagamentosMes, setPagamentosMes] = useState<{ valor_cents: number; created_at: string }[]>([]);
+  const [despesasMes, setDespesasMes] = useState<Despesa[]>([]);
+
+  const inicio = inicioMes(mesRef);
+  const fim = fimMes(mesRef);
+  const diasNoMes = fim.getDate();
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      const inicioProximoMes = new Date(mesRef.getFullYear(), mesRef.getMonth() + 1, 1);
+      const [{ data: pags }, { data: desp }] = await Promise.all([
+        supabase.from("pagamentos").select("valor_cents,created_at").eq("status", "pago")
+          .gte("created_at", inicio.toISOString()).lt("created_at", inicioProximoMes.toISOString()),
+        supabase.from("despesas_diarias").select("*").gte("data", fmtISO(inicio)).lte("data", fmtISO(fim)),
+      ]);
+      setPagamentosMes((pags as { valor_cents: number; created_at: string }[]) ?? []);
+      setDespesasMes((desp as Despesa[]) ?? []);
+      setLoading(false);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesRef.getTime()]);
+
+  const totalReceita = pagamentosMes.reduce((s, p) => s + p.valor_cents, 0);
+  const totalDespesa = despesasMes.reduce((s, d) => s + d.valor_cents, 0);
+  const saldoLiquido = totalReceita - totalDespesa;
+
+  const dadosDiarios = Array.from({ length: diasNoMes }, (_, i) => {
+    const dia = i + 1;
+    const diaStr = fmtISO(new Date(mesRef.getFullYear(), mesRef.getMonth(), dia));
+    const receita = pagamentosMes
+      .filter((p) => p.created_at.slice(0, 10) === diaStr)
+      .reduce((s, p) => s + p.valor_cents, 0) / 100;
+    const despesa = despesasMes
+      .filter((d) => d.data === diaStr)
+      .reduce((s, d) => s + d.valor_cents, 0) / 100;
+    return { dia, receita, despesa };
+  });
+
+  const porCategoria = Object.entries(
+    despesasMes.reduce<Record<string, number>>((acc, d) => {
+      acc[d.categoria] = (acc[d.categoria] ?? 0) + d.valor_cents;
+      return acc;
+    }, {})
+  ).map(([categoria, valor_cents]) => ({ categoria, valor: valor_cents / 100 }));
+
+  const nomeMes = mesRef.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <button onClick={() => setMesRef((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))} className="size-8 grid place-items-center rounded-lg border border-border hover:bg-brand/5">‹</button>
+        <button onClick={() => setMesRef(inicioMes(new Date()))} className="text-xs font-bold border border-border rounded-lg px-3 py-1.5 hover:bg-brand/5">Mês atual</button>
+        <button onClick={() => setMesRef((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))} className="size-8 grid place-items-center rounded-lg border border-border hover:bg-brand/5">›</button>
+        <span className="text-sm font-bold ml-2 capitalize">{nomeMes}</span>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-ink/50">Carregando…</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs text-ink/50">Receita do mês (avulsos pagos)</p>
+              <p className="text-2xl font-bold text-brand">R$ {(totalReceita / 100).toFixed(2)}</p>
+            </div>
+            <div className="bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs text-ink/50">Despesas do mês</p>
+              <p className="text-2xl font-bold text-destructive">R$ {(totalDespesa / 100).toFixed(2)}</p>
+            </div>
+            <div className={"rounded-2xl p-4 " + (saldoLiquido >= 0 ? "bg-green-100" : "bg-destructive/10")}>
+              <p className="text-xs text-ink/50">Saldo líquido do mês</p>
+              <p className={"text-2xl font-bold " + (saldoLiquido >= 0 ? "text-green-700" : "text-destructive")}>
+                R$ {(saldoLiquido / 100).toFixed(2)}
+              </p>
+            </div>
+          </div>
+          <p className="text-[11px] text-ink/40">
+            A receita considera pagamentos avulsos com status "pago" recebidos no mês. Banhos de pacote não entram aqui, pois já foram pagos na assinatura.
+          </p>
+
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h3 className="font-serif text-lg mb-3">Receita x Despesas por dia</h3>
+            <div style={{ width: "100%", height: 280 }}>
+              <ResponsiveContainer>
+                <BarChart data={dadosDiarios} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="dia" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} labelFormatter={(d) => `Dia ${d}`} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="receita" name="Receita" fill="var(--brand)" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="despesa" name="Despesa" fill="var(--destructive)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h3 className="font-serif text-lg mb-3">Despesas por categoria</h3>
+            {porCategoria.length === 0 ? (
+              <EmptyState label="Nenhuma despesa lançada neste mês." />
+            ) : (
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <div style={{ width: 220, height: 220 }}>
+                  <ResponsiveContainer>
+                    <PieChart>
+                      <Pie data={porCategoria} dataKey="valor" nameKey="categoria" innerRadius={50} outerRadius={90} paddingAngle={2}>
+                        {porCategoria.map((entry) => (
+                          <Cell key={entry.categoria} fill={CATEGORIA_CORES[entry.categoria] ?? "#94a3b8"} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(v: number) => `R$ ${v.toFixed(2)}`} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <ul className="space-y-1.5 text-sm">
+                  {porCategoria.map((c) => (
+                    <li key={c.categoria} className="flex items-center gap-2">
+                      <span className="size-3 rounded-full inline-block" style={{ backgroundColor: CATEGORIA_CORES[c.categoria] ?? "#94a3b8" }} />
+                      <span className="capitalize">{c.categoria.replace(/_/g, " ")}</span>
+                      <span className="font-bold ml-auto">R$ {c.valor.toFixed(2)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
