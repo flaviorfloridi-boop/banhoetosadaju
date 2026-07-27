@@ -8,6 +8,7 @@ import pet4 from "@/assets/pet-natal-4.jpg.asset.json";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { WhatsAppFloat } from "@/components/whatsapp-float";
+import { Reveal } from "@/components/reveal";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -51,8 +52,9 @@ function Home() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="px-6 md:px-8 py-12 md:py-20 max-w-7xl mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
-        <div>
+      <section className="bg-soft-blush texture-grain">
+      <div className="px-6 md:px-8 py-16 md:py-24 max-w-7xl mx-auto grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+        <Reveal>
           <span className="bg-brand/10 text-brand px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest">
             Especialistas em bem-estar
           </span>
@@ -83,45 +85,46 @@ function Home() {
             📞 (11) 94481-1381 &nbsp;·&nbsp;{" "}
             <a href="https://instagram.com/banhoetosadajuu" target="_blank" rel="noreferrer" className="underline hover:text-brand">@banhoetosadajuu</a>
           </p>
-        </div>
-        <div className="relative">
+        </Reveal>
+        <Reveal className="relative" delay={120}>
           <img
             src={pet1.url}
             alt="Pet cliente do Banho & Tosa da JU"
             width={1024}
             height={1280}
-            className="w-full aspect-[4/5] object-cover rounded-[40px] shadow-xl"
+            className="w-full aspect-[4/5] object-cover rounded-[40px] shadow-xl ring-1 ring-brand/10"
           />
-          <div className="absolute -bottom-6 -left-4 md:-left-6 bg-card p-5 rounded-3xl shadow-xl max-w-[220px] border border-border">
+          <div className="absolute -bottom-6 -left-4 md:-left-6 bg-card p-5 rounded-3xl shadow-xl max-w-[220px] border border-border edge-top card-glow">
             <div className="text-accent mb-1">★★★★★</div>
             <p className="text-sm font-medium italic">
               "Sempre saem cheirosinhos e felizes. Amamos a Ju!"
             </p>
             <p className="text-[10px] mt-2 text-ink/40">— Clientes @banhoetosadajuu</p>
           </div>
-        </div>
+        </Reveal>
+      </div>
       </section>
 
       {/* Services */}
-      <section id="servicos" className="bg-brand-light py-20 md:py-24 px-6 md:px-8">
+      <section id="servicos" className="bg-soft-brand texture-grain py-20 md:py-24 px-6 md:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-12 md:mb-16">
+          <Reveal className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-12 md:mb-16">
             <h2 className="font-serif text-3xl md:text-4xl">Serviços premium</h2>
             <p className="text-ink/60 max-w-xs text-sm">
               Equipamentos modernos e produtos hipoalergênicos para todas as raças.
             </p>
-          </div>
+          </Reveal>
           <div className="grid md:grid-cols-3 gap-6 md:gap-8">
-            <ServiceCard n="01" title="Banho e Tosa" desc="Corte na tesoura ou máquina, hidratação profunda e limpeza de ouvidos." img={pet3.url} />
-            <ServiceCard n="02" title="Taxi Dog" desc="Buscamos e entregamos seu pet com segurança em veículos climatizados." img={pet2.url} highlight />
-            <ServiceCard n="03" title="Cuidados com o Pet" desc="Acompanhamento de bem-estar, fotos do banho e atenção especial à saúde da pele e pelagem do seu pet." img={pet4.url} />
+            <Reveal><ServiceCard n="01" title="Banho e Tosa" desc="Corte na tesoura ou máquina, hidratação profunda e limpeza de ouvidos." img={pet3.url} /></Reveal>
+            <Reveal delay={100}><ServiceCard n="02" title="Taxi Dog" desc="Buscamos e entregamos seu pet com segurança em veículos climatizados." img={pet2.url} highlight /></Reveal>
+            <Reveal delay={200}><ServiceCard n="03" title="Cuidados com o Pet" desc="Acompanhamento de bem-estar, fotos do banho e atenção especial à saúde da pele e pelagem do seu pet." img={pet4.url} /></Reveal>
           </div>
         </div>
       </section>
 
       {/* Nossos pets — Instagram */}
       <section id="pets" className="py-20 md:py-24 px-6 md:px-8 max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-10">
+        <Reveal className="flex flex-col md:flex-row md:justify-between md:items-end gap-4 mb-10">
           <div>
             <h2 className="font-serif text-3xl md:text-4xl">Nossos pets</h2>
             <p className="text-ink/60 mt-2 max-w-md text-sm">
@@ -135,38 +138,40 @@ function Home() {
             href="https://instagram.com/banhoetosadajuu"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 border border-brand/20 rounded-full px-5 py-2 text-sm font-semibold hover:bg-brand/5 transition"
+            className="inline-flex items-center gap-2 border border-brand/20 rounded-full px-5 py-2 text-sm font-semibold hover:bg-brand/5 hover:border-brand/40 transition btn-lift"
           >
             Ver Instagram
           </a>
-        </div>
-        <PetsCarousel items={galleryItems} />
+        </Reveal>
+        <Reveal delay={80}><PetsCarousel items={galleryItems} /></Reveal>
       </section>
 
       {/* Portals CTA */}
-      <section className="py-20 md:py-24 px-6 md:px-8 max-w-7xl mx-auto">
+      <section className="bg-soft-blush texture-grain">
+      <div className="py-20 md:py-24 px-6 md:px-8 max-w-7xl mx-auto">
         <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
-          <div className="bg-card rounded-3xl p-8 shadow-sm border border-border">
+          <Reveal className="bg-card rounded-3xl p-8 shadow-sm border border-border edge-top card-glow">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-xl">Área do Tutor</h3>
               <span className="text-xs bg-brand-light text-brand px-3 py-1 rounded-lg font-bold uppercase">Cliente</span>
             </div>
             <p className="text-ink/70 mb-6">Cadastre seus pets, agende banho e tosa e solicite o Taxi Dog em poucos cliques.</p>
-            <Link to="/auth" className="inline-block bg-brand text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition">
+            <Link to="/auth" className="inline-block bg-brand text-primary-foreground px-6 py-3 rounded-xl font-bold hover:opacity-90 transition btn-lift">
               Entrar como tutor
             </Link>
-          </div>
-          <div className="bg-brand text-primary-foreground rounded-3xl p-8 shadow-xl">
+          </Reveal>
+          <Reveal delay={120} className="bg-gradient-to-br from-brand to-accent text-primary-foreground rounded-3xl p-8 shadow-xl card-glow">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-xl">Portal da Equipe</h3>
               <span className="text-xs bg-white/20 px-3 py-1 rounded-lg font-bold uppercase">Funcionário</span>
             </div>
             <p className="text-primary-foreground/80 mb-6">Agenda do dia, gestão de banhos, tosas e roteiro do Taxi Dog em tempo real.</p>
-            <Link to="/auth" className="inline-block bg-surface text-brand px-6 py-3 rounded-xl font-bold hover:opacity-90 transition">
+            <Link to="/auth" className="inline-block bg-surface text-brand px-6 py-3 rounded-xl font-bold hover:opacity-90 transition btn-lift">
               Acessar portal
             </Link>
-          </div>
+          </Reveal>
         </div>
+      </div>
       </section>
 
       <SiteFooter />
@@ -177,7 +182,7 @@ function Home() {
 
 function ServiceCard({ n, title, desc, img, highlight }: { n: string; title: string; desc: string; img: string; highlight?: boolean }) {
   return (
-    <div className={(highlight ? "bg-brand text-primary-foreground" : "bg-surface border border-brand/5") + " p-8 rounded-[32px] card-hover"}>
+    <div className={(highlight ? "bg-gradient-to-br from-brand to-accent text-primary-foreground" : "bg-card border border-border") + " h-full p-8 rounded-[32px] edge-top card-glow"}>
       <div className={"size-12 rounded-2xl mb-6 grid place-items-center font-bold " + (highlight ? "bg-white/15" : "bg-brand/10 text-brand")}>
         {n}
       </div>
