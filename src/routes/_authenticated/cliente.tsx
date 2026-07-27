@@ -187,7 +187,7 @@ function TabBtn({ active, children, onClick }: { active: boolean; children: Reac
   return (
     <button
       onClick={onClick}
-      className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition " + (active ? "border-brand text-brand" : "border-transparent text-ink/50 hover:text-ink")}
+      className={"px-4 py-3 text-sm font-bold border-b-2 whitespace-nowrap transition rounded-t-lg " + (active ? "border-brand text-brand bg-brand/5" : "border-transparent text-ink/50 hover:text-ink hover:bg-brand/5")}
     >
       {children}
     </button>
