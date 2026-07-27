@@ -22,6 +22,7 @@ import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ApiPublicAlertsDailyRouteImport } from './routes/api/public/alerts/daily'
+import { Route as ApiPublicInstagramSyncRouteImport } from './routes/api/public/instagram/sync'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -91,6 +92,11 @@ const ApiPublicAlertsDailyRoute = ApiPublicAlertsDailyRouteImport.update({
   path: '/api/public/alerts/daily',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicInstagramSyncRoute = ApiPublicInstagramSyncRouteImport.update({
+  id: '/api/public/instagram/sync',
+  path: '/api/public/instagram/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -111,6 +117,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/alerts/daily': typeof ApiPublicAlertsDailyRoute
+  '/api/public/instagram/sync': typeof ApiPublicInstagramSyncRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/alerts/daily': typeof ApiPublicAlertsDailyRoute
+  '/api/public/instagram/sync': typeof ApiPublicInstagramSyncRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesById {
@@ -143,6 +151,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/alerts/daily': typeof ApiPublicAlertsDailyRoute
+  '/api/public/instagram/sync': typeof ApiPublicInstagramSyncRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/alerts/daily'
+    | '/api/public/instagram/sync'
     | '/api/public/payments/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/alerts/daily'
+    | '/api/public/instagram/sync'
     | '/api/public/payments/webhook'
   id:
     | '__root__'
@@ -191,6 +202,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/alerts/daily'
+    | '/api/public/instagram/sync'
     | '/api/public/payments/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicAlertsDailyRoute: typeof ApiPublicAlertsDailyRoute
+  ApiPublicInstagramSyncRoute: typeof ApiPublicInstagramSyncRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicAlertsDailyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/instagram/sync': {
+      id: '/api/public/instagram/sync'
+      path: '/api/public/instagram/sync'
+      fullPath: '/api/public/instagram/sync'
+      preLoaderRoute: typeof ApiPublicInstagramSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -338,6 +358,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicAlertsDailyRoute: ApiPublicAlertsDailyRoute,
+  ApiPublicInstagramSyncRoute: ApiPublicInstagramSyncRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport

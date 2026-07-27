@@ -146,10 +146,16 @@ async function handleDaily() {
     }
   }
 
-  const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-  const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-  const TWILIO_WHATSAPP_FROM = process.env.TWILIO_WHATSAPP_FROM; // ex: whatsapp:+14155238886
-  const configured = Boolean(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_WHATSAPP_FROM);
+  // WhatsApp Business Platform (Meta Cloud API) — envio oficial direto pela Meta.
+  // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
+  const WHATSAPP_ACCESS_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+  const WHATSAPP_PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+  // Nome do template aprovado na Meta (WhatsApp Manager > Modelos de mensagem).
+  // O template precisa ter exatamente 1 variável no corpo, ex: "{{1}}",
+  // pra receber a mensagem já pronta que montamos aqui.
+  const WHATSAPP_TEMPLATE_NAME = process.env.WHATSAPP_TEMPLATE_NAME || 'notificacao_generica';
+  const WHATSAPP_TEMPLATE_LANG = process.env.WHATSAPP_TEMPLATE_LANG || 'pt_BR';
+  const configured = Boolean(WHATSAPP_ACCESS_TOKEN && WHATSAPP_PHONE_NUMBER_ID);
 
   const results: { nome: string; categoria: string; status: string }[] = [];
 
@@ -163,23 +169,31 @@ async function handleDaily() {
       continue;
     }
     try {
-      const to = `whatsapp:+${cleanPhone(r.telefone)}`;
-      const resp = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`, {
+      const resp = await fetch(`https://graph.facebook.com/v21.0/${WHATSAPP_PHONE_NUMBER_ID}/messages`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          Authorization: 'Basic ' + Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64'),
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${WHATSAPP_ACCESS_TOKEN}`,
         },
-        body: new URLSearchParams({ To: to, From: TWILIO_WHATSAPP_FROM as string, Body: r.mensagem }),
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: cleanPhone(r.telefone),
+          type: 'template',
+          template: {
+            name: WHATSAPP_TEMPLATE_NAME,
+            language: { code: WHATSAPP_TEMPLATE_LANG },
+            components: [{ type: 'body', parameters: [{ type: 'text', text: r.mensagem }] }],
+          },
+        }),
       });
-      results.push({ nome: r.nome, categoria: r.categoria, status: resp.ok ? 'enviado' : `erro_twilio_${resp.status}` });
+      results.push({ nome: r.nome, categoria: r.categoria, status: resp.ok ? 'enviado' : `erro_meta_${resp.status}` });
     } catch (e) {
       results.push({ nome: r.nome, categoria: r.categoria, status: 'erro_envio' });
     }
   }
 
   return {
-    modo: configured ? 'envio_real' : 'dry_run (configure TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM para ativar o envio real)',
+    modo: configured ? 'envio_real' : 'dry_run (configure WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID e um template aprovado para ativar o envio real)',
     total_calculado: recipients.length,
     resultados: results,
   };

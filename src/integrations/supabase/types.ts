@@ -142,6 +142,7 @@ export type Database = {
           created_at: string
           enviado_por: string | null
           id: string
+          instagram_media_id: string | null
           legenda: string | null
           ordem: number
           publicado: boolean
@@ -151,6 +152,7 @@ export type Database = {
           created_at?: string
           enviado_por?: string | null
           id?: string
+          instagram_media_id?: string | null
           legenda?: string | null
           ordem?: number
           publicado?: boolean
@@ -160,6 +162,7 @@ export type Database = {
           created_at?: string
           enviado_por?: string | null
           id?: string
+          instagram_media_id?: string | null
           legenda?: string | null
           ordem?: number
           publicado?: boolean
