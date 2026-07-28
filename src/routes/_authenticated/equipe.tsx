@@ -47,7 +47,7 @@ function mesReferenciaAtual(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-type Tab = "agenda" | "calendario" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos" | "financeiro";
+type Tab = "agenda" | "calendario" | "taxi" | "precos" | "config" | "fotos" | "galeria" | "mensagens" | "pacotes" | "fechamento" | "avisos" | "financeiro" | "equipe";
 
 function EquipePortal() {
   const { profile, loading } = useAuth();
@@ -202,6 +202,9 @@ function EquipePortal() {
           <TabBtn active={tab === "pacotes"} onClick={() => setTab("pacotes")}>🎟️ Pacotes</TabBtn>
           <TabBtn active={tab === "precos"} onClick={() => setTab("precos")}>💰 Preços</TabBtn>
           <TabBtn active={tab === "config"} onClick={() => setTab("config")}>⚙️ Configurações</TabBtn>
+          {profile?.role === "admin" && (
+            <TabBtn active={tab === "equipe"} onClick={() => setTab("equipe")}>🔐 Equipe</TabBtn>
+          )}
           <TabBtn active={tab === "fotos"} onClick={() => setTab("fotos")}>📸 Fotos dos pets</TabBtn>
           <TabBtn active={tab === "galeria"} onClick={() => setTab("galeria")}>🖼️ Galeria site</TabBtn>
           <TabBtn active={tab === "mensagens"} onClick={() => setTab("mensagens")}>💬 Mensagens</TabBtn>
@@ -355,6 +358,7 @@ function EquipePortal() {
         {tab === "avisos" && <AvisosTab pacotes={pacotes} profs={profs} clientes={clientes} templates={templates} />}
         {tab === "fechamento" && <FechamentoTab ags={ags} pets={pets} profs={profs} date={date} />}
         {tab === "financeiro" && <FinanceiroTab />}
+        {tab === "equipe" && profile?.role === "admin" && <EquipeAcessoTab meuId={profile.id} />}
         {tab === "pacotes" && (
           <PacotesTab pacotes={pacotes} clientes={clientes} profs={profs} onCriar={criarPacote} onReload={loadPacotes} onAtualizarPagamento={atualizarStatusPagamento} templates={templates} />
         )}
@@ -817,6 +821,105 @@ function NovoAgendamentoForm({ clientes, date, onCriado }: { clientes: Prof[]; d
       <button onClick={salvar} disabled={salvando} className="px-5 py-2 rounded-xl bg-brand text-primary-foreground font-bold disabled:opacity-50">
         {salvando ? "Salvando…" : "Cadastrar agendamento"}
       </button>
+    </div>
+  );
+}
+
+interface ProfileCompleto { id: string; nome: string; telefone: string | null; role: string; created_at: string; }
+
+function EquipeAcessoTab({ meuId }: { meuId: string }) {
+  const [pessoas, setPessoas] = useState<ProfileCompleto[]>([]);
+  const [busca, setBusca] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => { void carregar(); }, []);
+
+  async function carregar() {
+    setLoading(true);
+    const { data } = await supabase.from("profiles").select("id,nome,telefone,role,created_at").order("nome");
+    setPessoas((data as ProfileCompleto[]) ?? []);
+    setLoading(false);
+  }
+
+  async function alterarRole(id: string, novoRole: "cliente" | "funcionario" | "admin") {
+    if (id === meuId && novoRole !== "admin") {
+      toast.error("Você não pode remover seu próprio acesso de admin por aqui.");
+      return;
+    }
+    const { error } = await supabase.from("profiles").update({ role: novoRole }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Acesso atualizado");
+    void carregar();
+  }
+
+  const equipe = pessoas.filter((p) => p.role === "funcionario" || p.role === "admin");
+  const buscaLower = busca.trim().toLowerCase();
+  const resultadosBusca = buscaLower
+    ? pessoas.filter((p) => p.role === "cliente" && (p.nome.toLowerCase().includes(buscaLower) || p.telefone?.includes(buscaLower)))
+    : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-accent/10 border border-accent/20 rounded-2xl p-4 text-sm text-ink/70">
+        🔐 Só administradores conseguem ver e usar esta aba. Todo novo cadastro no site nasce como <strong>cliente</strong> — ninguém ganha acesso de funcionário sozinho, você precisa promover cada pessoa manualmente aqui.
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">Quem tem acesso hoje ({equipe.length})</h3>
+        {loading && <p className="text-sm text-ink/50">Carregando…</p>}
+        <div className="space-y-2">
+          {equipe.map((p) => (
+            <Card key={p.id}>
+              <div>
+                <p className="font-bold">{p.nome || "(sem nome)"} {p.id === meuId && <span className="text-xs text-ink/40">(você)</span>}</p>
+                <p className="text-xs text-ink/50">{p.telefone ?? "sem telefone"}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={"text-[11px] font-bold px-2 py-0.5 rounded-full " + (p.role === "admin" ? "bg-brand/10 text-brand" : "bg-accent/10 text-accent")}>
+                  {p.role === "admin" ? "Admin" : "Funcionário"}
+                </span>
+                {p.role !== "admin" && (
+                  <button onClick={() => alterarRole(p.id, "admin")} className="text-[11px] font-bold text-brand hover:underline">
+                    Tornar admin
+                  </button>
+                )}
+                <button
+                  onClick={() => alterarRole(p.id, "cliente")}
+                  disabled={p.id === meuId}
+                  className="text-[11px] font-bold text-destructive hover:underline disabled:opacity-30 disabled:no-underline"
+                >
+                  Remover acesso
+                </button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-serif text-lg mb-3">Dar acesso a um cliente existente</h3>
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Busque por nome ou telefone do cliente…"
+          className="w-full px-4 py-2 rounded-lg border border-border bg-surface text-sm mb-3"
+        />
+        {buscaLower && resultadosBusca.length === 0 && <EmptyState label="Nenhum cliente encontrado com esse nome/telefone." />}
+        <div className="space-y-2">
+          {resultadosBusca.map((p) => (
+            <Card key={p.id}>
+              <div>
+                <p className="font-bold">{p.nome || "(sem nome)"}</p>
+                <p className="text-xs text-ink/50">{p.telefone ?? "sem telefone"}</p>
+              </div>
+              <button onClick={() => alterarRole(p.id, "funcionario")} className="text-xs bg-brand text-primary-foreground px-3 py-1.5 rounded-full font-bold hover:opacity-90">
+                Tornar funcionário
+              </button>
+            </Card>
+          ))}
+        </div>
+        <p className="text-[11px] text-ink/40 mt-2">A pessoa precisa já ter uma conta criada no site (como cliente) antes de você conseguir dar acesso de funcionário a ela.</p>
+      </div>
     </div>
   );
 }
